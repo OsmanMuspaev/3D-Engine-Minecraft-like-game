@@ -1,4 +1,4 @@
-#include <iostream>
+#include <cmath>
 #include "Vector3.h"
 
 // Конструктор по умолчанию

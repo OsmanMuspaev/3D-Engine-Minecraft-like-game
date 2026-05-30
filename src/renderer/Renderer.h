@@ -10,41 +10,43 @@ class Renderer {
 public:
     Renderer(unsigned int width, unsigned int height);
     
-    // Очистка буфера
     void clear(sf::Color color = sf::Color::Black);
     
-    // Нарисовать треугольник (вершины уже в экранных координатах)
-    void drawTriangle(const Vector4& v0, const Vector4& v1, const Vector4& v2, sf::Color color);
-    
-    // Нарисовать меш с трансформациями
+    // С цветом
     void drawMesh(const std::vector<Vector3>& vertices,
                   const std::vector<unsigned int>& indices,
                   const Matrix4x4& model,
                   const Matrix4x4& view,
                   const Matrix4x4& proj,
-                  const sf::Color color,
+                  sf::Color color,
                   const Vector3& cameraPos);
     
-    // Показать буфер на экране
+    // С текстурой
+    void drawMesh(const std::vector<Vector3>& vertices,
+                  const std::vector<unsigned int>& indices,
+                  const std::vector<sf::Vector2f>& uvs,
+                  const sf::Texture& texture,
+                  const Matrix4x4& model,
+                  const Matrix4x4& view,
+                  const Matrix4x4& proj,
+                  const Vector3& cameraPos);
+    
     void display(sf::RenderWindow& window);
-
-    // Задать направление света
     void setLightDirection(const Vector3& direction);
     
 private:
-    sf::Image m_frameBuffer;
-    sf::Texture m_texture;
+    sf::RenderTexture m_renderTexture;
     std::optional<sf::Sprite> m_sprite;
-    std::vector<float> m_zBuffer;
-    unsigned int m_width;
-    unsigned int m_height;
-    
-    // Поставить пиксель с проверкой Z-буфера
-    void setPixel(int x, int y, float z, sf::Color color);
-    
-    // Нарисовать горизонтальную линию между двумя точками
-    void drawScanLine(int y, const Vector4& left, const Vector4& right, sf::Color color);
-
-    // Свет
+    sf::Color m_clearColor;
     Vector3 m_lightDir;
+    
+    // Общая часть для обоих drawMesh
+    void drawMeshInternal(const std::vector<Vector4>& transformed,
+                          const std::vector<Vector3>& vertices,
+                          const std::vector<unsigned int>& indices,
+                          const std::vector<sf::Vector2f>* uvs,
+                          const sf::Texture* texture,
+                          const Matrix4x4& model,
+                          sf::Color baseColor,
+                          const Vector3& cameraPos);
 };

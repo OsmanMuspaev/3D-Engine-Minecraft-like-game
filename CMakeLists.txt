@@ -15,12 +15,14 @@ set(SOURCES
     src/math/Vector4.cpp
     src/math/Matrix4x4.cpp
     src/renderer/Renderer.cpp
+    src/world/TextureAtlas.cpp
+    src/world/Cube.cpp
 )
 
 add_executable(3D-game ${SOURCES})
 
 target_include_directories(3D-game PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
 )
 
 target_link_libraries(3D-game PRIVATE

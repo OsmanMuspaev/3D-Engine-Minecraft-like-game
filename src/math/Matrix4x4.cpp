@@ -1,4 +1,4 @@
-#include <iostream>
+#include <cmath>
 #include "Matrix4x4.h"
 
 // Конструктор по умолчанию
@@ -48,9 +48,6 @@ Vector4 Matrix4x4::operator*(const Vector4& v) const {
         m[3][0]*v.x + m[3][1]*v.y + m[3][2]*v.z + m[3][3]*v.w
     );
 }
-
-
-
 
 // Статические методы для создания матриц
 Matrix4x4 Matrix4x4::identity() {
