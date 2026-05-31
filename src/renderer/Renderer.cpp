@@ -1,13 +1,17 @@
 #include "Renderer.h"
 #include <cmath>
 #include <algorithm>
+#include <limits>
+#include <future>
+#include <vector>
 
 Renderer::Renderer(unsigned int width, unsigned int height)
     : m_width(width), m_height(height)
 {
     m_depthBuffer.resize(width * height, std::numeric_limits<float>::infinity());
-    m_image.resize({width, height});
+    m_image.resize({width, height}, sf::Color::Black);
     m_imageTexture.resize({width, height});
+    
     m_lightDir = Vector3(0.3f, -0.8f, -0.5f).normalize();
     m_clearColor = sf::Color::Black;
 }
@@ -19,11 +23,7 @@ void Renderer::setLightDirection(const Vector3& dir) {
 void Renderer::clear(sf::Color color)
 {
     m_clearColor = color;
-    if (m_image.getSize().x != m_width || m_image.getSize().y != m_height) {
-        m_image.resize({m_width, m_height}, color);
-    } else {
-        m_image.resize({m_width, m_height}, color); 
-    }
+    m_image.resize({m_width, m_height}, color);
     std::fill(m_depthBuffer.begin(), m_depthBuffer.end(), std::numeric_limits<float>::infinity());
 }
 
@@ -37,8 +37,8 @@ static std::vector<Vector4> transformVertices(
 
     for (const Vector3& v : vertices) {
         Vector4 projected = mvp * Vector4(v.x, v.y, v.z, 1.0f);
+        
         float originalW = projected.w;
-
         if (projected.w != 0.0f) {
             float invW = 1.0f / projected.w;
             projected.x *= invW;
@@ -55,96 +55,61 @@ static std::vector<Vector4> transformVertices(
     return result;
 }
 
-void Renderer::drawMesh(const std::vector<Vector3>& vertices,
-                        const std::vector<unsigned int>& indices,
-                        const Matrix4x4& model,
-                        const Matrix4x4& view,
-                        const Matrix4x4& proj,
-                        sf::Color color,
-                        const Vector3& cameraPos) {
-    Matrix4x4 mvp = proj * view * model;
-    auto transformed = transformVertices(vertices, mvp, m_width * 0.5f, m_height * 0.5f);
-    drawMeshInternal(transformed, vertices, indices, nullptr, nullptr, model, color, cameraPos);
-}
-
-void Renderer::drawMesh(const std::vector<Vector3>& vertices,
-                        const std::vector<unsigned int>& indices,
-                        const std::vector<sf::Vector2f>& uvs,
-                        const sf::Image& image,
-                        const Matrix4x4& model,
-                        const Matrix4x4& view,
-                        const Matrix4x4& proj,
-                        const Vector3& cameraPos) {
-    Matrix4x4 mvp = proj * view * model;
-    auto transformed = transformVertices(vertices, mvp, m_width * 0.5f, m_height * 0.5f);
-    drawMeshInternal(transformed, vertices, indices, &uvs, &image, model, sf::Color::White, cameraPos);
-}
-
-void Renderer::rasterizeTriangle(
-    const Vector4& v0, const Vector4& v1, const Vector4& v2,
-    sf::Color c0, sf::Color c1, sf::Color c2,
-    sf::Vector2f uv0, sf::Vector2f uv1, sf::Vector2f uv2,
-    const uint8_t* texPixels, sf::Vector2u texSize)
+// Функция для отрисовки одной полосы экрана (вызывается в потоке)
+void Renderer::rasterizeStripe(
+    int yStart, int yEnd,
+    const std::vector<RenderTriangle>& triangles,
+    const uint8_t* texPixels, sf::Vector2u texSize) 
 {
-    int minX = std::max(0,              (int)std::floor(std::min({v0.x, v1.x, v2.x})));
-    int maxX = std::min((int)m_width-1, (int)std::ceil (std::max({v0.x, v1.x, v2.x})));
-    int minY = std::max(0,              (int)std::floor(std::min({v0.y, v1.y, v2.y})));
-    int maxY = std::min((int)m_height-1,(int)std::ceil (std::max({v0.y, v1.y, v2.y})));
+    for (const auto& tri : triangles) {
+        // Bounding Box с учетом полосы потока
+        int minX = std::max(0, (int)std::floor(std::min({tri.v0.x, tri.v1.x, tri.v2.x})));
+        int maxX = std::min((int)m_width - 1, (int)std::ceil(std::max({tri.v0.x, tri.v1.x, tri.v2.x})));
+        int minY = std::max(yStart, (int)std::floor(std::min({tri.v0.y, tri.v1.y, tri.v2.y})));
+        int maxY = std::min(yEnd - 1, (int)std::ceil(std::max({tri.v0.y, tri.v1.y, tri.v2.y})));
 
-    float denom = (v1.y - v2.y)*(v0.x - v2.x) + (v2.x - v1.x)*(v0.y - v2.y);
-    if (std::abs(denom) < 1e-6f) return;
-    float invDenom = 1.0f / denom;
+        if (minX > maxX || minY > maxY) continue;
 
-    float invW0 = 1.0f / v0.w;
-    float invW1 = 1.0f / v1.w;
-    float invW2 = 1.0f / v2.w;
+        float invDenom = tri.invDenom;
 
-    for (int py = minY; py <= maxY; py++) {
-        for (int px = minX; px <= maxX; px++) {
-            float fx = px + 0.5f, fy = py + 0.5f;
+        for (int py = minY; py <= maxY; py++) {
+            for (int px = minX; px <= maxX; px++) {
+                float fx = px + 0.5f;
+                float fy = py + 0.5f;
 
-            float w0 = ((v1.y-v2.y)*(fx-v2.x) + (v2.x-v1.x)*(fy-v2.y)) * invDenom;
-            float w1 = ((v2.y-v0.y)*(fx-v2.x) + (v0.x-v2.x)*(fy-v2.y)) * invDenom;
-            float w2 = 1.0f - w0 - w1;
+                float w0 = ((tri.v1.y - tri.v2.y) * (fx - tri.v2.x) + (tri.v2.x - tri.v1.x) * (fy - tri.v2.y)) * invDenom;
+                float w1 = ((tri.v2.y - tri.v0.y) * (fx - tri.v2.x) + (tri.v0.x - tri.v2.x) * (fy - tri.v2.y)) * invDenom;
+                float w2 = 1.0f - w0 - w1;
 
-            if (w0 < 0 || w1 < 0 || w2 < 0) continue;
+                if (w0 < 0 || w1 < 0 || w2 < 0) continue;
 
-            float z = w0*v0.z + w1*v1.z + w2*v2.z;
-            int idx = py * m_width + px;
+                float z = w0 * tri.v0.z + w1 * tri.v1.z + w2 * tri.v2.z;
+                int idx = py * m_width + px;
 
-            if (texPixels) {
-                float interpInvW = w0*invW0 + w1*invW1 + w2*invW2;
-                float u = (w0*uv0.x*invW0 + w1*uv1.x*invW1 + w2*uv2.x*invW2) / interpInvW;
-                float v = (w0*uv0.y*invW0 + w1*uv1.y*invW1 + w2*uv2.y*invW2) / interpInvW;
-                
-                int tx = std::clamp((int)u, 0, (int)texSize.x - 1);
-                int ty = std::clamp((int)v, 0, (int)texSize.y - 1);
-                int ti = (ty * (int)texSize.x + tx) * 4;
-
-                // --- ФИКС МЕРЦАНИЯ (ALPHA TEST) ---
-                // Если пиксель в атласе прозрачный (альфа < 128), мы его игнорируем полностью
-                if (texPixels[ti + 3] < 128) continue;
-
-                // Только после проверки прозрачности проверяем Z-буфер
                 if (z >= m_depthBuffer[idx]) continue;
-                m_depthBuffer[idx] = z;
 
-                m_image.setPixel({(unsigned int)px, (unsigned int)py}, sf::Color(
-                    (uint8_t)(texPixels[ti+0] * c0.r / 255.0f),
-                    (uint8_t)(texPixels[ti+1] * c0.g / 255.0f),
-                    (uint8_t)(texPixels[ti+2] * c0.b / 255.0f),
-                    texPixels[ti+3]
-                ));
-            } else {
-                // Обычная заливка цветом (без текстур)
-                if (z >= m_depthBuffer[idx]) continue;
-                m_depthBuffer[idx] = z;
-                
-                m_image.setPixel({(unsigned int)px, (unsigned int)py}, sf::Color(
-                    (uint8_t)(w0*c0.r + w1*c1.r + w2*c2.r),
-                    (uint8_t)(w0*c0.g + w1*c1.g + w2*c2.g),
-                    (uint8_t)(w0*c0.b + w1*c1.b + w2*c2.b)
-                ));
+                if (texPixels) {
+                    float interpInvW = w0 * tri.invW0 + w1 * tri.invW1 + w2 * tri.invW2;
+                    float u = (w0 * tri.uv0.x * tri.invW0 + w1 * tri.uv1.x * tri.invW1 + w2 * tri.uv2.x * tri.invW2) / interpInvW;
+                    float v = (w0 * tri.uv0.y * tri.invW0 + w1 * tri.uv1.y * tri.invW1 + w2 * tri.uv2.y * tri.invW2) / interpInvW;
+                    
+                    int tx = (int)u % texSize.x;
+                    int ty = (int)v % texSize.y;
+                    int ti = (ty * (int)texSize.x + tx) * 4;
+
+                    if (texPixels[ti + 3] < 128) continue; 
+
+                    m_depthBuffer[idx] = z;
+                    m_image.setPixel({(unsigned int)px, (unsigned int)py}, sf::Color(
+                        (uint8_t)(texPixels[ti+0] * tri.color.r / 255.0f),
+                        (uint8_t)(texPixels[ti+1] * tri.color.g / 255.0f),
+                        (uint8_t)(texPixels[ti+2] * tri.color.b / 255.0f),
+                        texPixels[ti+3]
+                    ));
+                } else {
+                    m_depthBuffer[idx] = z;
+                    m_image.setPixel({(unsigned int)px, (unsigned int)py}, tri.color);
+                }
             }
         }
     }
@@ -160,13 +125,10 @@ void Renderer::drawMeshInternal(
     sf::Color baseColor,
     const Vector3& cameraPos)
 {
-    const uint8_t* texPixels = nullptr;
-    sf::Vector2u texSize;
-    if (image) {
-        texPixels = image->getPixelsPtr();
-        texSize   = image->getSize();
-    }
+    std::vector<RenderTriangle> triangles;
+    triangles.reserve(indices.size() / 3);
 
+    // 1. Подготовка данных (трансформация и Culling)
     for (size_t i = 0; i < indices.size(); i += 3)
     {
         unsigned int i0 = indices[i], i1 = indices[i+1], i2 = indices[i+2];
@@ -178,44 +140,67 @@ void Renderer::drawMeshInternal(
         Vector4 w1 = model * Vector4(vertices[i1].x, vertices[i1].y, vertices[i1].z, 1.0f);
         Vector4 w2 = model * Vector4(vertices[i2].x, vertices[i2].y, vertices[i2].z, 1.0f);
         
-        Vector3 edge1(w1.x-w0.x, w1.y-w0.y, w1.z-w0.z);
-        Vector3 edge2(w2.x-w0.x, w2.y-w0.y, w2.z-w0.z);
+        Vector3 worldV0(w0.x, w0.y, w0.z);
+        Vector3 edge1(w1.x - w0.x, w1.y - w0.y, w1.z - w0.z);
+        Vector3 edge2(w2.x - w0.x, w2.y - w0.y, w2.z - w0.z);
         Vector3 normal = edge1.cross(edge2).normalize();
 
-        constexpr float AMBIENT = 0.2f;
-        float dotLight = normal.dot(m_lightDir * -1.0f);
-        float brightness = std::clamp(dotLight, 0.0f, 1.0f);
-        brightness = AMBIENT + (1.0f - AMBIENT) * brightness;
+        Vector3 viewDir = (worldV0 - cameraPos).normalize();
+        if (normal.dot(viewDir) > 0.1f) continue; // Куллинг
 
-        sf::Color lit(
+        float dotLight = normal.dot(m_lightDir * -1.0f);
+        float brightness = std::max(0.25f, std::min(1.0f, 0.25f + 0.75f * dotLight));
+
+        RenderTriangle tri;
+        tri.v0 = transformed[i0]; tri.v1 = transformed[i1]; tri.v2 = transformed[i2];
+        tri.color = sf::Color(
             (uint8_t)(baseColor.r * brightness),
             (uint8_t)(baseColor.g * brightness),
             (uint8_t)(baseColor.b * brightness)
         );
+        if (uvs) { tri.uv0 = (*uvs)[i0]; tri.uv1 = (*uvs)[i1]; tri.uv2 = (*uvs)[i2]; }
+        
+        float denom = (tri.v1.y - tri.v2.y)*(tri.v0.x - tri.v2.x) + (tri.v2.x - tri.v1.x)*(tri.v0.y - tri.v2.y);
+        if (std::abs(denom) < 1e-6f) continue;
+        tri.invDenom = 1.0f / denom;
+        tri.invW0 = 1.0f / tri.v0.w; tri.invW1 = 1.0f / tri.v1.w; tri.invW2 = 1.0f / tri.v2.w;
 
-        sf::Vector2f uv0, uv1, uv2;
-        if (uvs) { uv0=(*uvs)[i0]; uv1=(*uvs)[i1]; uv2=(*uvs)[i2]; }
-
-        if (transformed[i0].z < 0.0f || transformed[i1].z < 0.0f || transformed[i2].z < 0.0f)
-            continue;
-
-        rasterizeTriangle(
-            transformed[i0], transformed[i1], transformed[i2],
-            lit, lit, lit,
-            uv0, uv1, uv2,
-            texPixels, texSize
-        );
+        triangles.push_back(tri);
     }
+
+    if (triangles.empty()) return;
+
+    // 2. МНОГОПОТОЧНАЯ РАСТЕРИЗАЦИЯ
+    const uint8_t* texPixels = (image) ? image->getPixelsPtr() : nullptr;
+    sf::Vector2u texSize = (image) ? image->getSize() : sf::Vector2u(0,0);
+
+    unsigned int numThreads = std::thread::hardware_concurrency();
+    std::vector<std::future<void>> futures;
+    int stripeHeight = m_height / numThreads;
+
+    for (unsigned int t = 0; t < numThreads; t++) {
+        int yStart = t * stripeHeight;
+        int yEnd = (t == numThreads - 1) ? m_height : (t + 1) * stripeHeight;
+
+        futures.push_back(std::async(std::launch::async, &Renderer::rasterizeStripe, this, 
+                                     yStart, yEnd, std::ref(triangles), texPixels, texSize));
+    }
+
+    for (auto& f : futures) f.get();
+}
+
+void Renderer::drawMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned int>& indices,
+                        const std::vector<sf::Vector2f>& uvs, const sf::Image& image,
+                        const Matrix4x4& model, const Matrix4x4& view, const Matrix4x4& proj, const Vector3& cameraPos) {
+    Matrix4x4 mvp = proj * view * model;
+    auto transformed = transformVertices(vertices, mvp, m_width * 0.5f, m_height * 0.5f);
+    drawMeshInternal(transformed, vertices, indices, &uvs, &image, model, sf::Color::White, cameraPos);
 }
 
 void Renderer::display(sf::RenderWindow& window) {
     m_imageTexture.update(m_image);
     sf::Sprite sprite(m_imageTexture);
     sf::Vector2u windowSize = window.getSize();
-    
-    float scaleX = (float)windowSize.x / m_width;
-    float scaleY = (float)windowSize.y / m_height;
-    
-    sprite.setScale({scaleX, scaleY});
+    sprite.setScale({ (float)windowSize.x / m_width, (float)windowSize.y / m_height });
     window.draw(sprite);
 }

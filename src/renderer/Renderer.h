@@ -6,9 +6,20 @@
 #include "../math/Vector4.h"
 #include "../math/Matrix4x4.h"
 
+struct RenderTriangle {
+    Vector4 v0, v1, v2;
+    sf::Vector2f uv0, uv1, uv2;
+    sf::Color color;
+    float invDenom;
+    float invW0, invW1, invW2;
+};
+
 class Renderer {
 public:
     Renderer(unsigned int width, unsigned int height);
+
+    unsigned int getWidth() const { return m_width; }
+    unsigned int getHeight() const { return m_height; }
 
     void setLightDirection(const Vector3& dir);
     void clear(sf::Color color);
@@ -45,6 +56,9 @@ private:
         sf::Color c0, sf::Color c1, sf::Color c2,
         sf::Vector2f uv0, sf::Vector2f uv1, sf::Vector2f uv2,
         const uint8_t* texPixels, sf::Vector2u texSize);
+
+    void rasterizeStripe(int yStart, int yEnd, const std::vector<RenderTriangle>& triangles, 
+                     const uint8_t* texPixels, sf::Vector2u texSize);
 
     void drawMeshInternal(
         const std::vector<Vector4>& transformed,
