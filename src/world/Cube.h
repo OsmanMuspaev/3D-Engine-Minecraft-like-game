@@ -26,12 +26,15 @@ public:
               const Vector3& cameraPos) const;
     
 private:
-    static constexpr float s = 0.5f;
+    static constexpr float s = 0.5f; // Половина размера стороны
     
     std::vector<Vector3> m_vertices;
     std::vector<unsigned int> m_indices;
+    
     mutable std::vector<sf::Vector2f> m_uvs;
-    unsigned int m_faceTiles[6];  // тайлы для каждой грани
+    mutable bool m_needsUVUpdate = true; // Флаг: нужно ли обновлять UV
+    
+    unsigned int m_faceTiles[6];  // Индексы тайлов атласа для каждой грани
     
     void updateUVs(const TextureAtlas& atlas) const;
 };

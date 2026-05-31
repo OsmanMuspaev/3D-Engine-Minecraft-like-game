@@ -1,22 +1,26 @@
 #pragma once
 #include <SFML/Graphics.hpp>
-#include <vector>
+#include <array>
+#include <string>
 
 class TextureAtlas {
 public:
-    TextureAtlas() = default;
-    
+    // Загрузка атласа из файла
     bool loadFromFile(const std::string& path, unsigned int tileSize);
-    void loadFromTexture(const sf::Texture& texture, unsigned int tileSize);  // ← ДОЛЖНА БЫТЬ ЭТА СТРОКА
     
-    std::vector<sf::Vector2f> getUV(unsigned int tileIndex) const;
-    
+    // Загрузка атласа из существующей текстуры
+    void loadFromTexture(const sf::Texture& texture, unsigned int tileSize);
+
+    // Возвращает массив из 4 UV-координат в ПИКСЕЛЯХ
+    std::array<sf::Vector2f, 4> getUV(unsigned int tileIndex) const;
+
     const sf::Texture& getTexture() const { return m_texture; }
-    bool isLoaded() const { return m_loaded; }
-    
+    const sf::Image&   getImage()   const { return m_image; }
+
 private:
-    sf::Texture m_texture;
-    unsigned int m_tileSize = 0;
+    sf::Texture  m_texture;
+    sf::Image    m_image;       
+    unsigned int m_tileSize    = 0;
     unsigned int m_tilesPerRow = 0;
-    bool m_loaded = false;
+    bool         m_loaded      = false;
 };
