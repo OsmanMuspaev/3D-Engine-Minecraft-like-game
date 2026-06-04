@@ -5,7 +5,47 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(SFML 3 COMPONENTS Graphics Window System REQUIRED)
+option(FORCE_FETCH_SFML "Force download and build SFML even if system version exists" OFF)
+
+if(APPLE)
+    if(EXISTS "/opt/homebrew")
+        list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew")
+    elseif(EXISTS "/usr/local")
+        list(APPEND CMAKE_PREFIX_PATH "/usr/local")
+    endif()
+endif()
+
+if(NOT FORCE_FETCH_SFML)
+    find_package(SFML 3 QUIET COMPONENTS Graphics Window System)
+endif()
+
+if(SFML_FOUND AND NOT FORCE_FETCH_SFML)
+    message(STATUS "Found system SFML 3 at: ${SFML_DIR}")
+    set(USE_SYSTEM_SFML TRUE)
+else()
+    message(STATUS "System SFML 3 not found. Downloading and building...")
+    set(USE_SYSTEM_SFML FALSE)
+    
+    include(FetchContent)
+    
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(SFML_BUILD_AUDIO ON CACHE BOOL "" FORCE)
+    set(SFML_BUILD_GRAPHICS ON CACHE BOOL "" FORCE)
+    set(SFML_BUILD_WINDOW ON CACHE BOOL "" FORCE)
+    set(SFML_BUILD_NETWORK OFF CACHE BOOL "" FORCE)
+    set(SFML_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(SFML_BUILD_DOC OFF CACHE BOOL "" FORCE)
+    
+    FetchContent_Declare(
+        sfml
+        GIT_REPOSITORY https://github.com/SFML/SFML.git
+        GIT_TAG 3.0.2
+        GIT_SHALLOW ON
+        GIT_PROGRESS ON
+    )
+    
+    FetchContent_MakeAvailable(sfml)
+endif()
 
 set(SOURCES
     src/main.cpp
@@ -26,15 +66,51 @@ target_include_directories(3D-game PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
 
-target_link_libraries(3D-game PRIVATE
-    SFML::Graphics
-    SFML::Window
-    SFML::System
-)
+if(USE_SYSTEM_SFML)
+    target_link_libraries(3D-game PRIVATE
+        SFML::Graphics
+        SFML::Window
+        SFML::System
+    )
+else()
+    target_link_libraries(3D-game PRIVATE
+        sfml-graphics
+        sfml-window
+        sfml-system
+    )
+endif()
 
 add_custom_command(TARGET 3D-game POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_SOURCE_DIR}/assets"
-    "$<TARGET_FILE_DIR:3D-game>/assets"
+        "${CMAKE_SOURCE_DIR}/assets"
+        "$<TARGET_FILE_DIR:3D-game>/assets"
     COMMENT "Copying assets to build directory..."
 )
+
+if(APPLE)
+    set_target_properties(3D-game PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME "BotRunner"
+        MACOSX_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    )
+    
+    add_custom_command(TARGET 3D-game POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_DIR:3D-game>/Contents/Resources/assets"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/assets"
+            "$<TARGET_BUNDLE_DIR:3D-game>/Contents/Resources/assets"
+        COMMENT "Copying assets to macOS app bundle..."
+    )
+endif()
+
+message(STATUS "")
+message(STATUS "=== BotRunner Configuration ===")
+message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
+if(USE_SYSTEM_SFML)
+    message(STATUS "SFML: System installed version")
+else()
+    message(STATUS "SFML: Built from source (3.0.2)")
+endif()
+message(STATUS "================================")
+message(STATUS "")
