@@ -10,7 +10,8 @@
 #include "math/Vector3.h"
 #include "math/Matrix4x4.h"
 #include "renderer/Renderer.h"
-#include "world/TextureAtlas.h"
+#include "world/TextureManager.h"
+#include "world/BlockRegistry.h"
 #include "world/World.h"
 
 std::string getAssetPath(const std::string& filename) {
@@ -21,7 +22,7 @@ std::string getAssetPath(const std::string& filename) {
         "3D-game.app/Contents/Resources/assets/" + filename,
         "/Users/osman-nyri/Desktop/Проекты/Games/3D-Engine/assets/" + filename
     };
-    
+
     for (const auto& path : paths) {
         if (std::filesystem::exists(path)) {
             std::cout << "Found asset: " << path << std::endl;
@@ -37,8 +38,18 @@ int main() {
     const unsigned int WINDOW_H = 1050;
     float renderScale = 0.25f;
 
-    sf::RenderWindow window(sf::VideoMode({WINDOW_W, WINDOW_H}), "Voxel Engine CPU - Dynamic Resolution");
+    sf::RenderWindow window(sf::VideoMode({WINDOW_W, WINDOW_H}), "Quadro");
     window.setFramerateLimit(120);
+
+    // Установка иконки приложения
+    {
+        sf::Image icon;
+        std::string iconPath = getAssetPath("AppIcon.png");
+        if (icon.loadFromFile(iconPath)) {
+            window.setIcon(icon);
+            std::cout << "App icon loaded: " << iconPath << "\n";
+        }
+    }
 
     std::unique_ptr<Renderer> renderer;
 
@@ -47,20 +58,25 @@ int main() {
         unsigned int rh = static_cast<unsigned int>(WINDOW_H * scale);
         if (rw < 32) rw = 32;
         if (rh < 32) rh = 32;
-        
+
         renderer = std::make_unique<Renderer>(rw, rh);
         std::cout << "Resolution changed: " << rw << "x" << rh << " (Scale: " << scale << ")\n";
     };
 
     initRenderer(renderScale);
 
-    TextureAtlas atlas;
-    std::string atlasPath = getAssetPath("atlas.png");
-    if (!atlas.loadFromFile(atlasPath, 16)) {
-        std::cerr << "Failed to load atlas from: " << atlasPath << "\n";
+    TextureManager texMgr;
+    std::string assetsPath = getAssetPath("");
+    // Убираем завершающий слэш если есть
+    if (!assetsPath.empty() && assetsPath.back() == '/') {
+        assetsPath.pop_back();
+    }
+    if (!texMgr.loadFromDirectory(assetsPath, 16)) {
+        std::cerr << "Failed to load textures from: " << assetsPath << "\n";
         return -1;
     }
-    std::cout << "Atlas loaded successfully from: " << atlasPath << std::endl;
+
+    BlockRegistry::instance().init();
 
     World world;
     world.generate(10, 10);
@@ -87,11 +103,10 @@ int main() {
     int frames = 0, currentFps = 0;
     bool rotating = false;
     sf::Vector2i lastMouse;
-    
-    // Состояния клавиш для движения
+
     bool wPressed = false, sPressed = false, aPressed = false, dPressed = false;
     bool spacePressed = false, shiftPressed = false;
-    bool spaceWasPressed = false; // Для однократного прыжка
+    bool spaceWasPressed = false;
 
     while (window.isOpen()) {
         while (auto event = window.pollEvent()) {
@@ -101,7 +116,7 @@ int main() {
             if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
                 if (key->code == sf::Keyboard::Key::Escape)
                     window.close();
-                
+
                 if (key->code == sf::Keyboard::Key::Equal) {
                     renderScale = std::min(1.0f, renderScale + 0.05f);
                     initRenderer(renderScale);
@@ -110,11 +125,10 @@ int main() {
                     renderScale = std::max(0.1f, renderScale - 0.05f);
                     initRenderer(renderScale);
                 }
-                
+
                 if (key->code == sf::Keyboard::Key::F1)
                     camera.cycleMode();
-                
-                // Обработка клавиш движения
+
                 if (key->scancode == sf::Keyboard::Scancode::W) wPressed = true;
                 if (key->scancode == sf::Keyboard::Scancode::S) sPressed = true;
                 if (key->scancode == sf::Keyboard::Scancode::A) aPressed = true;
@@ -122,7 +136,7 @@ int main() {
                 if (key->code == sf::Keyboard::Key::Space) spacePressed = true;
                 if (key->scancode == sf::Keyboard::Scancode::LShift) shiftPressed = true;
             }
-            
+
             if (const auto* key = event->getIf<sf::Event::KeyReleased>()) {
                 if (key->scancode == sf::Keyboard::Scancode::W) wPressed = false;
                 if (key->scancode == sf::Keyboard::Scancode::S) sPressed = false;
@@ -156,14 +170,12 @@ int main() {
         }
 
         float speed = 12.0f * dt;
-        
-        // Движение через события
+
         if (wPressed) camera.moveForward(speed, world);
         if (sPressed) camera.moveForward(-speed, world);
         if (aPressed) camera.moveRight(-speed, world);
         if (dPressed) camera.moveRight(speed, world);
 
-        // Прыжок (однократный)
         if (spacePressed && !spaceWasPressed) {
             if (camera.getMode() == Camera::Mode::Survival) {
                 if (camera.isOnGround(world)) camera.jump();
@@ -172,8 +184,7 @@ int main() {
             }
         }
         spaceWasPressed = spacePressed;
-        
-        // Подъем/спуск в режиме свободной камеры
+
         if (shiftPressed) {
             if (camera.getMode() != Camera::Mode::Survival) camera.moveUp(-speed);
         }
@@ -187,7 +198,7 @@ int main() {
         Matrix4x4 view = camera.getViewMatrix();
 
         renderer->setLightDirection(Vector3(0.5f, -1.0f, 0.3f));
-        world.draw(*renderer, atlas, view, proj, camera.getPosition());
+        world.draw(*renderer, texMgr, view, proj, camera.getPosition());
         renderer->display(window);
 
         frames++;
@@ -197,7 +208,7 @@ int main() {
         }
 
         std::string modeStr = (camera.getMode() == Camera::Mode::Survival) ? "Survival" : "Free";
-        uiText.setString("FPS: " + std::to_string(currentFps) + 
+        uiText.setString("FPS: " + std::to_string(currentFps) +
                          "\nScale: " + std::to_string(renderScale).substr(0, 4) +
                          "\nRes: " + std::to_string(renderer->getWidth()) + "x" + std::to_string(renderer->getHeight()) +
                          "\nMode: " + modeStr +

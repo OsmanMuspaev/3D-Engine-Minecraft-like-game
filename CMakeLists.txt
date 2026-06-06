@@ -54,8 +54,9 @@ set(SOURCES
     src/math/Vector4.cpp
     src/math/Matrix4x4.cpp
     src/renderer/Renderer.cpp
-    src/world/TextureAtlas.cpp
-    src/world/Cube.cpp
+    src/world/TextureManager.cpp
+    src/world/BlockRegistry.cpp
+    src/world/BiomeManager.cpp
     src/world/Chunk.cpp
     src/world/World.cpp
 )
@@ -90,9 +91,10 @@ add_custom_command(TARGET 3D-game POST_BUILD
 if(APPLE)
     set_target_properties(3D-game PROPERTIES
         MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_BUNDLE_NAME "BotRunner"
+        MACOSX_BUNDLE_BUNDLE_NAME "VoxelEngine"
         MACOSX_BUNDLE_VERSION "${PROJECT_VERSION}"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_ICON_FILE "AppIcon.icns"
     )
     
     add_custom_command(TARGET 3D-game POST_BUILD
@@ -100,7 +102,10 @@ if(APPLE)
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_SOURCE_DIR}/assets"
             "$<TARGET_BUNDLE_DIR:3D-game>/Contents/Resources/assets"
-        COMMENT "Copying assets to macOS app bundle..."
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/assets/AppIcon.icns"
+            "$<TARGET_BUNDLE_DIR:3D-game>/Contents/Resources/AppIcon.icns"
+        COMMENT "Copying assets and icon to macOS app bundle..."
     )
 endif()
 

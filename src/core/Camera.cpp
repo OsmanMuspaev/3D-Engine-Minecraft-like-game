@@ -5,8 +5,8 @@
 
 // Константы игрока
 constexpr float PLAYER_HEIGHT = 1.8f;
-constexpr float PLAYER_RADIUS = 0.3f; // Немного увеличил для стабильности коллизий
-constexpr float GRAVITY = 24.0f;      // Чуть выше для "приятного" веса
+constexpr float PLAYER_RADIUS = 0.3f;
+constexpr float GRAVITY = 24.0f;
 constexpr float MAX_FALL_SPEED = 40.0f;
 constexpr float JUMP_VELOCITY = 8.5f;
 
@@ -19,7 +19,6 @@ bool Camera::aabbTest(const World& world, float footX, float footY, float footZ)
     float minZ = footZ - PLAYER_RADIUS;
     float maxZ = footZ + PLAYER_RADIUS;
 
-    // Проверяем блоки в радиусе хитбокса
     int bxMin = static_cast<int>(std::floor(minX));
     int bxMax = static_cast<int>(std::floor(maxX));
     int byMin = static_cast<int>(std::floor(minY));
@@ -50,6 +49,7 @@ Camera::Camera(const Vector3& position, const Vector3& target, const Vector3& up
     m_pitch = std::asin(std::clamp(m_forward.y, -1.0f, 1.0f));
 }
 
+// Движение вперёд/назад (в плоскости XZ)
 void Camera::moveForward(float distance, const World& world)
 {
     if (m_mode == Mode::Spectator) {
@@ -57,7 +57,6 @@ void Camera::moveForward(float distance, const World& world)
         return;
     }
 
-    // Движение только в плоскости XZ, чтобы не летать при взгляде вверх/вниз
     Vector3 moveDir = Vector3(m_forward.x, 0, m_forward.z).normalize();
     float feetY = m_position.y - PLAYER_HEIGHT;
 
@@ -68,6 +67,7 @@ void Camera::moveForward(float distance, const World& world)
     if (!aabbTest(world, m_position.x, feetY, nz)) m_position.z = nz;
 }
 
+// Двлжение влево/вправо (в плоскости XZ)
 void Camera::moveRight(float distance, const World& world)
 {
     if (m_mode == Mode::Spectator) {
@@ -93,7 +93,6 @@ void Camera::moveUp(float distance)
 
 void Camera::jump()
 {
-    // Прыгаем только если на земле и в режиме выживания
     if (m_onGround && m_mode == Mode::Survival) {
         m_velocityY = JUMP_VELOCITY;
         m_onGround = false;
@@ -102,26 +101,25 @@ void Camera::jump()
 
 bool Camera::isOnGround(const World& world) const
 {
-    // Небольшой зазор под ногами для детекции земли
     return aabbTest(world, m_position.x, m_position.y - PLAYER_HEIGHT - 0.05f, m_position.z);
 }
 
+// Физика: гравитация + коллизии по Y
 void Camera::updatePhysics(float dt, const World& world)
 {
     if (m_mode == Mode::Spectator) return;
 
-    // Обновляем состояние земли
     m_onGround = isOnGround(world);
 
     if (m_mode == Mode::Survival) {
         m_velocityY -= GRAVITY * dt;
         m_velocityY = std::max(m_velocityY, -MAX_FALL_SPEED);
     } else {
-        m_velocityY = 0; // В Креативе нет гравитации
+        m_velocityY = 0;
         return;
     }
 
-    // Итеративное движение по Y (защита от пролета сквозь пол/потолок)
+    // Итеративное движение по Y (защита от пролёта сквозь блоки)
     float moveY = m_velocityY * dt;
     float stepY = 0.05f;
     float movedY = 0.0f;
@@ -135,14 +133,14 @@ void Camera::updatePhysics(float dt, const World& world)
 
         if (aabbTest(world, m_position.x, feetY, m_position.z))
         {
-            if (m_velocityY < 0.0f) // Ударились о землю
+            if (m_velocityY < 0.0f)
             {
                 m_position.y = std::floor(feetY) + 1.0f + PLAYER_HEIGHT;
                 m_onGround = true;
-            } 
-            else // Ударились головой о потолок
+            }
+            else
             {
-                m_position.y = std::floor(nextY) - 0.01f; 
+                m_position.y = std::floor(nextY) - 0.01f;
             }
             m_velocityY = 0.0f;
             break;
@@ -153,12 +151,11 @@ void Camera::updatePhysics(float dt, const World& world)
     }
 }
 
+// Вращение камеры (yaw + pitch)
 void Camera::rotate(float yaw, float pitch)
 {
     m_yaw += yaw;
     m_pitch += pitch;
-    
-    // Ограничение взгляда (85 градусов)
     m_pitch = std::clamp(m_pitch, -1.48f, 1.48f);
 
     m_forward = Vector3(
@@ -179,7 +176,7 @@ void Camera::cycleMode()
         case Mode::Creative:  m_mode = Mode::Spectator; break;
         case Mode::Spectator: m_mode = Mode::Survival;  break;
     }
-    m_velocityY = 0; // Сброс скорости при смене режима
+    m_velocityY = 0;
 }
 
 Camera::Mode Camera::getMode() const { return m_mode; }

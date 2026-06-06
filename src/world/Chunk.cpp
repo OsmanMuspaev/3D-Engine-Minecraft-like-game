@@ -1,5 +1,6 @@
 #include "Chunk.h"
 #include "World.h"
+#include "BlockRegistry.h"
 
 Chunk::Chunk(int cx, int cy, int cz) : m_cx(cx), m_cy(cy), m_cz(cz) {
     m_blocks.resize(SIZE * SIZE * SIZE, Block(BlockType::AIR));
@@ -14,17 +15,24 @@ Block Chunk::getBlock(int x, int y, int z) const {
     return m_blocks[index(x, y, z)];
 }
 
-void Chunk::addFaceData(const std::array<sf::Vector2f, 4>& faceUVs) const {
+void Chunk::addFaceData(const std::array<sf::Vector2f, 4>& faceUVs,
+                         const sf::Color& tintColor) const
+{
     unsigned int base = static_cast<unsigned int>(m_meshVerts.size()) - 4;
-    // Порядок индексов для двух треугольников: (0,1,2) и (0,2,3)
     m_meshIndices.insert(m_meshIndices.end(), {base, base + 1, base + 2, base, base + 2, base + 3});
     m_meshUVs.insert(m_meshUVs.end(), {faceUVs[0], faceUVs[1], faceUVs[2], faceUVs[3]});
+    for (int i = 0; i < 4; i++) {
+        m_meshTints.push_back(tintColor);
+    }
 }
 
-void Chunk::buildMesh(const TextureAtlas& atlas, const World& world) {
+void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
     m_meshVerts.clear();
     m_meshIndices.clear();
     m_meshUVs.clear();
+    m_meshTints.clear();
+
+    const auto& blockReg = BlockRegistry::instance();
 
     for (int y = 0; y < SIZE; y++) {
         for (int z = 0; z < SIZE; z++) {
@@ -36,60 +44,63 @@ void Chunk::buildMesh(const TextureAtlas& atlas, const World& world) {
                 int wy = m_cy * SIZE + y;
                 int wz = m_cz * SIZE + z;
 
-                auto texIDs = Block::getTextures(block.type);
+                auto texIDs = blockReg.getBlockTextures(texMgr, block.type);
+                const auto& def = blockReg.getDef(block.type);
                 float fx = (float)wx, fy = (float)wy, fz = (float)wz;
+
+                Biome biome = world.getBiome(wx, wz);
 
                 auto check = [&](int dx, int dy, int dz) {
                     return !world.getBlock(wx + dx, wy + dy, wz + dz).isSolid();
                 };
 
-                // +X
                 if (check(1, 0, 0)) {
                     m_meshVerts.push_back({fx + 1, fy,     fz + 1});
                     m_meshVerts.push_back({fx + 1, fy,     fz});
                     m_meshVerts.push_back({fx + 1, fy + 1, fz});
                     m_meshVerts.push_back({fx + 1, fy + 1, fz + 1});
-                    addFaceData(atlas.getUV(texIDs[FACE_PX]));
+                    addFaceData(texMgr.getUV(texIDs[FACE_PX]),
+                                world.getBiomeManager().getTintColor(biome, def.tintIndex[FACE_PX]));
                 }
-                // -X
                 if (check(-1, 0, 0)) {
                     m_meshVerts.push_back({fx, fy,     fz});
                     m_meshVerts.push_back({fx, fy,     fz + 1});
                     m_meshVerts.push_back({fx, fy + 1, fz + 1});
                     m_meshVerts.push_back({fx, fy + 1, fz});
-                    addFaceData(atlas.getUV(texIDs[FACE_NX]));
+                    addFaceData(texMgr.getUV(texIDs[FACE_NX]),
+                                world.getBiomeManager().getTintColor(biome, def.tintIndex[FACE_NX]));
                 }
-                // +Y (Верх)
                 if (check(0, 1, 0)) {
                     m_meshVerts.push_back({fx,     fy + 1, fz + 1});
                     m_meshVerts.push_back({fx + 1, fy + 1, fz + 1});
                     m_meshVerts.push_back({fx + 1, fy + 1, fz});
                     m_meshVerts.push_back({fx,     fy + 1, fz});
-                    addFaceData(atlas.getUV(texIDs[FACE_PY]));
+                    addFaceData(texMgr.getUV(texIDs[FACE_PY]),
+                                world.getBiomeManager().getTintColor(biome, def.tintIndex[FACE_PY]));
                 }
-                // -Y (Низ)
                 if (check(0, -1, 0)) {
                     m_meshVerts.push_back({fx,     fy, fz});
                     m_meshVerts.push_back({fx + 1, fy, fz});
                     m_meshVerts.push_back({fx + 1, fy, fz + 1});
                     m_meshVerts.push_back({fx,     fy, fz + 1});
-                    addFaceData(atlas.getUV(texIDs[FACE_NY]));
+                    addFaceData(texMgr.getUV(texIDs[FACE_NY]),
+                                world.getBiomeManager().getTintColor(biome, def.tintIndex[FACE_NY]));
                 }
-                // +Z
                 if (check(0, 0, 1)) {
                     m_meshVerts.push_back({fx,     fy,     fz + 1});
                     m_meshVerts.push_back({fx + 1, fy,     fz + 1});
                     m_meshVerts.push_back({fx + 1, fy + 1, fz + 1});
                     m_meshVerts.push_back({fx,     fy + 1, fz + 1});
-                    addFaceData(atlas.getUV(texIDs[FACE_PZ]));
+                    addFaceData(texMgr.getUV(texIDs[FACE_PZ]),
+                                world.getBiomeManager().getTintColor(biome, def.tintIndex[FACE_PZ]));
                 }
-                // -Z
                 if (check(0, 0, -1)) {
                     m_meshVerts.push_back({fx + 1, fy,     fz});
                     m_meshVerts.push_back({fx,     fy,     fz});
                     m_meshVerts.push_back({fx,     fy + 1, fz});
                     m_meshVerts.push_back({fx + 1, fy + 1, fz});
-                    addFaceData(atlas.getUV(texIDs[FACE_NZ]));
+                    addFaceData(texMgr.getUV(texIDs[FACE_NZ]),
+                                world.getBiomeManager().getTintColor(biome, def.tintIndex[FACE_NZ]));
                 }
             }
         }
@@ -97,9 +108,9 @@ void Chunk::buildMesh(const TextureAtlas& atlas, const World& world) {
     m_dirty = false;
 }
 
-void Chunk::draw(Renderer& renderer, const TextureAtlas& atlas, 
+void Chunk::draw(Renderer& renderer, const TextureManager& texMgr,
                  const Matrix4x4& view, const Matrix4x4& proj, const Vector3& cameraPos) const {
     if (m_meshIndices.empty()) return;
-    Matrix4x4 model; 
-    renderer.drawMesh(m_meshVerts, m_meshIndices, m_meshUVs, atlas.getImage(), model, view, proj, cameraPos); 
+    Matrix4x4 model;
+    renderer.drawMesh(m_meshVerts, m_meshIndices, m_meshUVs, m_meshTints, texMgr.getImage(), model, view, proj, cameraPos);
 }
