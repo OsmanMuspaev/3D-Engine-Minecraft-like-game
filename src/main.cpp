@@ -41,7 +41,6 @@ int main() {
     sf::RenderWindow window(sf::VideoMode({WINDOW_W, WINDOW_H}), "Quadro");
     window.setFramerateLimit(120);
 
-    // Установка иконки приложения
     {
         sf::Image icon;
         std::string iconPath = getAssetPath("AppIcon.png");
@@ -67,7 +66,6 @@ int main() {
 
     TextureManager texMgr;
     std::string assetsPath = getAssetPath("");
-    // Убираем завершающий слэш если есть
     if (!assetsPath.empty() && assetsPath.back() == '/') {
         assetsPath.pop_back();
     }
@@ -79,7 +77,7 @@ int main() {
     BlockRegistry::instance().init();
 
     World world;
-    world.generate(10, 10);
+    world.generate(20, 20);
 
     Camera camera(Vector3(8.0f, 25.0f, 8.0f), Vector3(0, 0, 1), Vector3(0, 1, 0));
 
@@ -103,6 +101,7 @@ int main() {
     int frames = 0, currentFps = 0;
     bool rotating = false;
     sf::Vector2i lastMouse;
+    float totalTime = 0.0f;
 
     bool wPressed = false, sPressed = false, aPressed = false, dPressed = false;
     bool spacePressed = false, shiftPressed = false;
@@ -160,6 +159,7 @@ int main() {
         }
 
         float dt = deltaClock.restart().asSeconds();
+        totalTime += dt;
 
         if (rotating) {
             auto pos = sf::Mouse::getPosition(window);
@@ -177,16 +177,24 @@ int main() {
         if (dPressed) camera.moveRight(speed, world);
 
         if (spacePressed && !spaceWasPressed) {
-            if (camera.getMode() == Camera::Mode::Survival) {
-                if (camera.isOnGround(world)) camera.jump();
-            } else {
-                camera.moveUp(speed);
-            }
+            camera.handleSpacePress(world, totalTime);
         }
         spaceWasPressed = spacePressed;
 
+        if (spacePressed && camera.getMode() == Camera::Mode::Creative && camera.isFlying()) {
+            camera.moveUp(speed, world);
+        }
+
+        if (camera.getMode() == Camera::Mode::Spectator) {
+            if (spacePressed) camera.moveUp(speed, world);
+        }
+
         if (shiftPressed) {
-            if (camera.getMode() != Camera::Mode::Survival) camera.moveUp(-speed);
+            if (camera.getMode() == Camera::Mode::Creative && camera.isFlying()) {
+                camera.moveUp(-speed, world);
+            } else if (camera.getMode() == Camera::Mode::Spectator) {
+                camera.moveUp(-speed, world);
+            }
         }
 
         camera.updatePhysics(dt, world);
@@ -207,12 +215,17 @@ int main() {
             frames = 0;
         }
 
-        std::string modeStr = (camera.getMode() == Camera::Mode::Survival) ? "Survival" : "Free";
+        std::string modeStr;
+        switch (camera.getMode()) {
+            case Camera::Mode::Survival:  modeStr = "Survival"; break;
+            case Camera::Mode::Creative:  modeStr = camera.isFlying() ? "Creative (Flying)" : "Creative"; break;
+            case Camera::Mode::Spectator: modeStr = "Spectator"; break;
+        }
         uiText.setString("FPS: " + std::to_string(currentFps) +
                          "\nScale: " + std::to_string(renderScale).substr(0, 4) +
                          "\nRes: " + std::to_string(renderer->getWidth()) + "x" + std::to_string(renderer->getHeight()) +
                          "\nMode: " + modeStr +
-                         "\n[+/-] Res | [F1] Mode");
+                         "\n[+/-] Res | [F1] Mode | [Space x2] Fly");
 
         window.draw(uiText);
         window.display();

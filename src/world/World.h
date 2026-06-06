@@ -27,5 +27,5 @@ private:
     std::map<std::tuple<int, int, int>, std::unique_ptr<Chunk>> m_chunks;
     BiomeManager m_biomeMgr;
 
-    void createTree(int x, int y, int z, float density);
+    void createTree(int x, int y, int z);
 };

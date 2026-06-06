@@ -5,7 +5,6 @@
 #include <array>
 #include <unordered_map>
 
-// Тип тинтинга для биомных цветов
 enum TintType : int {
     TINT_NONE = 0,
     TINT_GRASS = 1,
@@ -16,7 +15,7 @@ enum TintType : int {
 struct BlockDef {
     std::string name;
     std::array<std::string, 6> textures; // PX, NX, PY, NY, PZ, NZ
-    std::array<int, 6> tintIndex;        // тинт для каждой грани (TINT_NONE / TINT_GRASS / ...)
+    std::array<int, 6> tintIndex;
     bool solid = true;
     bool transparent = false;
 };

@@ -57,6 +57,7 @@ set(SOURCES
     src/world/TextureManager.cpp
     src/world/BlockRegistry.cpp
     src/world/BiomeManager.cpp
+    src/world/Noise.cpp
     src/world/Chunk.cpp
     src/world/World.cpp
 )

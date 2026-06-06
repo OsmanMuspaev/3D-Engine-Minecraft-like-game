@@ -26,7 +26,6 @@ void Renderer::clear(sf::Color color)
     std::fill(m_depthBuffer.begin(), m_depthBuffer.end(), std::numeric_limits<float>::infinity());
 }
 
-// Трансформация вершин через MVP + конвертация в экранные координаты
 static std::vector<Vector4> transformVertices(
     const std::vector<Vector3>& vertices,
     const Matrix4x4& mvp,
@@ -52,7 +51,6 @@ static std::vector<Vector4> transformVertices(
     return result;
 }
 
-// Растеризация полосы экрана (вызывается в отдельном потоке)
 void Renderer::rasterizeStripe(
     int yStart, int yEnd,
     const std::vector<RenderTriangle>& triangles,
@@ -111,7 +109,6 @@ void Renderer::rasterizeStripe(
     }
 }
 
-// Подготовка треугольников + запуск многопоточной растеризации
 void Renderer::drawMeshInternal(
     const std::vector<Vector4>& transformed,
     const std::vector<Vector3>& vertices,
@@ -146,7 +143,6 @@ void Renderer::drawMeshInternal(
         Vector3 viewDir = (worldV0 - cameraPos).normalize();
         if (normal.dot(viewDir) > 0.1f) continue;
 
-        // Диффузное освещение
         float dotLight = normal.dot(m_lightDir * -1.0f);
         float brightness = std::max(0.25f, std::min(1.0f, 0.25f + 0.75f * dotLight));
 
@@ -170,10 +166,10 @@ void Renderer::drawMeshInternal(
 
     if (triangles.empty()) return;
 
-    // Многопоточная растеризация — экран делится на горизонтальные полосы
     const uint8_t* texPixels = (image) ? image->getPixelsPtr() : nullptr;
     sf::Vector2u texSize = (image) ? image->getSize() : sf::Vector2u(0,0);
 
+    // Многопоточная растеризация
     unsigned int numThreads = std::thread::hardware_concurrency();
     std::vector<std::future<void>> futures;
     int stripeHeight = m_height / numThreads;

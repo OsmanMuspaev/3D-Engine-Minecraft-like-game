@@ -3,19 +3,18 @@
 #include <cmath>
 #include <algorithm>
 
-// Константы игрока
-constexpr float PLAYER_HEIGHT = 1.8f;
-constexpr float PLAYER_RADIUS = 0.3f;
 constexpr float GRAVITY = 24.0f;
 constexpr float MAX_FALL_SPEED = 40.0f;
 constexpr float JUMP_VELOCITY = 8.5f;
+constexpr float FLY_SPEED = 12.0f;
+constexpr float DOUBLE_TAP_MS = 0.3f;
 
-bool Camera::aabbTest(const World& world, float footX, float footY, float footZ)
+bool Camera::aabbTest(const World& world, float footX, float footY, float footZ, float checkHeight)
 {
     float minX = footX - PLAYER_RADIUS;
     float maxX = footX + PLAYER_RADIUS;
     float minY = footY;
-    float maxY = footY + PLAYER_HEIGHT;
+    float maxY = footY + checkHeight;
     float minZ = footZ - PLAYER_RADIUS;
     float maxZ = footZ + PLAYER_RADIUS;
 
@@ -26,14 +25,11 @@ bool Camera::aabbTest(const World& world, float footX, float footY, float footZ)
     int bzMin = static_cast<int>(std::floor(minZ));
     int bzMax = static_cast<int>(std::floor(maxZ));
 
-    for (int by = byMin; by <= byMax; by++) {
-        for (int bx = bxMin; bx <= bxMax; bx++) {
-            for (int bz = bzMin; bz <= bzMax; bz++) {
+    for (int by = byMin; by <= byMax; by++)
+        for (int bx = bxMin; bx <= bxMax; bx++)
+            for (int bz = bzMin; bz <= bzMax; bz++)
                 if (world.isBlocking((float)bx, (float)by, (float)bz))
                     return true;
-            }
-        }
-    }
     return false;
 }
 
@@ -49,7 +45,6 @@ Camera::Camera(const Vector3& position, const Vector3& target, const Vector3& up
     m_pitch = std::asin(std::clamp(m_forward.y, -1.0f, 1.0f));
 }
 
-// Движение вперёд/назад (в плоскости XZ)
 void Camera::moveForward(float distance, const World& world)
 {
     if (m_mode == Mode::Spectator) {
@@ -57,17 +52,27 @@ void Camera::moveForward(float distance, const World& world)
         return;
     }
 
+    if (m_mode == Mode::Creative && m_flying) {
+        Vector3 flatForward = Vector3(m_forward.x, 0, m_forward.z).normalize();
+        float nx = m_position.x + flatForward.x * distance;
+        float nz = m_position.z + flatForward.z * distance;
+        float feetY = m_position.y - PLAYER_HEIGHT;
+        if (!aabbTest(world, nx, feetY, m_position.z)) m_position.x = nx;
+        if (!aabbTest(world, m_position.x, feetY, nz)) m_position.z = nz;
+        return;
+    }
+
     Vector3 moveDir = Vector3(m_forward.x, 0, m_forward.z).normalize();
     float feetY = m_position.y - PLAYER_HEIGHT;
+    float checkHeight = 0.1f;
 
     float nx = m_position.x + moveDir.x * distance;
-    if (!aabbTest(world, nx, feetY, m_position.z)) m_position.x = nx;
+    if (!aabbTest(world, nx, feetY, m_position.z, checkHeight)) m_position.x = nx;
 
     float nz = m_position.z + moveDir.z * distance;
-    if (!aabbTest(world, m_position.x, feetY, nz)) m_position.z = nz;
+    if (!aabbTest(world, m_position.x, feetY, nz, checkHeight)) m_position.z = nz;
 }
 
-// Двлжение влево/вправо (в плоскости XZ)
 void Camera::moveRight(float distance, const World& world)
 {
     if (m_mode == Mode::Spectator) {
@@ -75,28 +80,85 @@ void Camera::moveRight(float distance, const World& world)
         return;
     }
 
+    if (m_mode == Mode::Creative && m_flying) {
+        Vector3 flatRight = Vector3(m_right.x, 0, m_right.z).normalize();
+        float nx = m_position.x + flatRight.x * distance;
+        float nz = m_position.z + flatRight.z * distance;
+        float feetY = m_position.y - PLAYER_HEIGHT;
+        if (!aabbTest(world, nx, feetY, m_position.z)) m_position.x = nx;
+        if (!aabbTest(world, m_position.x, feetY, nz)) m_position.z = nz;
+        return;
+    }
+
     Vector3 moveDir = Vector3(m_right.x, 0, m_right.z).normalize();
     float feetY = m_position.y - PLAYER_HEIGHT;
+    float checkHeight = 0.1f;
 
     float nx = m_position.x + moveDir.x * distance;
-    if (!aabbTest(world, nx, feetY, m_position.z)) m_position.x = nx;
+    if (!aabbTest(world, nx, feetY, m_position.z, checkHeight)) m_position.x = nx;
 
     float nz = m_position.z + moveDir.z * distance;
-    if (!aabbTest(world, m_position.x, feetY, nz)) m_position.z = nz;
+    if (!aabbTest(world, m_position.x, feetY, nz, checkHeight)) m_position.z = nz;
 }
 
-void Camera::moveUp(float distance)
+void Camera::moveUp(float distance, const World& world)
 {
     if (m_mode == Mode::Survival) return;
-    m_position.y += distance;
+
+    if (m_mode == Mode::Spectator) {
+        m_position.y += distance;
+        return;
+    }
+
+    if (m_flying) {
+        float nextY = m_position.y + distance;
+        float feetY = nextY - PLAYER_HEIGHT;
+        if (!aabbTest(world, m_position.x, feetY, m_position.z)) {
+            m_position.y = nextY;
+        }
+    }
 }
 
-void Camera::jump()
+void Camera::handleSpacePress(const World& world, float currentTime)
 {
-    if (m_onGround && m_mode == Mode::Survival) {
-        m_velocityY = JUMP_VELOCITY;
-        m_onGround = false;
+    if (m_mode == Mode::Survival) {
+        float headY = m_position.y;
+        if (aabbTest(world, m_position.x, headY, m_position.z, 0.1f)) {
+            float pushY = std::floor(headY) + 1.0f + PLAYER_HEIGHT;
+            if (!aabbTest(world, m_position.x, pushY - PLAYER_HEIGHT, m_position.z)) {
+                m_position.y = pushY;
+                return;
+            }
+        }
+        if (m_onGround) {
+            m_velocityY = JUMP_VELOCITY;
+            m_onGround = false;
+        }
+        return;
     }
+
+    if (m_mode == Mode::Creative) {
+        float diff = currentTime - m_lastSpaceTime;
+        m_lastSpaceTime = currentTime;
+
+        if (diff < DOUBLE_TAP_MS) {
+            m_flying = !m_flying;
+            m_velocityY = 0;
+        } else if (m_onGround && !m_flying) {
+            m_velocityY = JUMP_VELOCITY;
+            m_onGround = false;
+        }
+    }
+}
+
+void Camera::handleSpaceRelease()
+{
+}
+
+void Camera::updateFlying(float dt, const World& world)
+{
+    if (m_mode != Mode::Creative || !m_flying) return;
+    m_velocityY = 0;
 }
 
 bool Camera::isOnGround(const World& world) const
@@ -104,22 +166,20 @@ bool Camera::isOnGround(const World& world) const
     return aabbTest(world, m_position.x, m_position.y - PLAYER_HEIGHT - 0.05f, m_position.z);
 }
 
-// Физика: гравитация + коллизии по Y
 void Camera::updatePhysics(float dt, const World& world)
 {
     if (m_mode == Mode::Spectator) return;
 
     m_onGround = isOnGround(world);
 
-    if (m_mode == Mode::Survival) {
-        m_velocityY -= GRAVITY * dt;
-        m_velocityY = std::max(m_velocityY, -MAX_FALL_SPEED);
-    } else {
+    if (m_mode == Mode::Creative && m_flying) {
         m_velocityY = 0;
         return;
     }
 
-    // Итеративное движение по Y (защита от пролёта сквозь блоки)
+    m_velocityY -= GRAVITY * dt;
+    m_velocityY = std::max(m_velocityY, -MAX_FALL_SPEED);
+
     float moveY = m_velocityY * dt;
     float stepY = 0.05f;
     float movedY = 0.0f;
@@ -133,13 +193,10 @@ void Camera::updatePhysics(float dt, const World& world)
 
         if (aabbTest(world, m_position.x, feetY, m_position.z))
         {
-            if (m_velocityY < 0.0f)
-            {
+            if (m_velocityY < 0.0f) {
                 m_position.y = std::floor(feetY) + 1.0f + PLAYER_HEIGHT;
                 m_onGround = true;
-            }
-            else
-            {
+            } else {
                 m_position.y = std::floor(nextY) - 0.01f;
             }
             m_velocityY = 0.0f;
@@ -151,7 +208,6 @@ void Camera::updatePhysics(float dt, const World& world)
     }
 }
 
-// Вращение камеры (yaw + pitch)
 void Camera::rotate(float yaw, float pitch)
 {
     m_yaw += yaw;
@@ -177,6 +233,7 @@ void Camera::cycleMode()
         case Mode::Spectator: m_mode = Mode::Survival;  break;
     }
     m_velocityY = 0;
+    m_flying = false;
 }
 
 Camera::Mode Camera::getMode() const { return m_mode; }
