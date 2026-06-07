@@ -50,6 +50,7 @@ endif()
 set(SOURCES
     src/main.cpp
     src/core/Camera.cpp
+    src/core/Game.cpp
     src/math/Vector3.cpp
     src/math/Vector4.cpp
     src/math/Matrix4x4.cpp
@@ -60,6 +61,10 @@ set(SOURCES
     src/world/Noise.cpp
     src/world/Chunk.cpp
     src/world/World.cpp
+    src/world/Item.cpp
+    src/world/Inventory.cpp
+    src/world/InventoryUI.cpp
+    src/world/PlayerInteraction.cpp
 )
 
 add_executable(3D-game ${SOURCES})
@@ -97,6 +102,10 @@ if(APPLE)
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
         MACOSX_BUNDLE_ICON_FILE "AppIcon.icns"
     )
+
+    target_link_libraries(3D-game PRIVATE
+        "-framework CoreFoundation"
+    )
     
     add_custom_command(TARGET 3D-game POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_DIR:3D-game>/Contents/Resources/assets"
@@ -106,7 +115,8 @@ if(APPLE)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_SOURCE_DIR}/assets/AppIcon.icns"
             "$<TARGET_BUNDLE_DIR:3D-game>/Contents/Resources/AppIcon.icns"
-        COMMENT "Copying assets and icon to macOS app bundle..."
+        COMMAND codesign --force --deep --sign - "$<TARGET_BUNDLE_DIR:3D-game>"
+        COMMENT "Copying assets to macOS app bundle and signing..."
     )
 endif()
 

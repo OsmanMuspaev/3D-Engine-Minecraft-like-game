@@ -28,6 +28,7 @@ public:
     bool isFlying() const { return m_flying; }
     Vector3 getPosition() const;
     Matrix4x4 getViewMatrix() const;
+    Vector3 getForward() const { return m_forward; }
 
 private:
     static bool aabbTest(const World& world, float footX, float footY, float footZ, float checkHeight = PLAYER_HEIGHT);
