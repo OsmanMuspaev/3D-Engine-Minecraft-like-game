@@ -16,7 +16,7 @@ if(APPLE)
 endif()
 
 if(NOT FORCE_FETCH_SFML)
-    find_package(SFML 3 QUIET COMPONENTS Graphics Window System)
+    find_package(SFML 3 COMPONENTS Graphics Window System Network)
 endif()
 
 if(SFML_FOUND AND NOT FORCE_FETCH_SFML)
@@ -32,7 +32,7 @@ else()
     set(SFML_BUILD_AUDIO ON CACHE BOOL "" FORCE)
     set(SFML_BUILD_GRAPHICS ON CACHE BOOL "" FORCE)
     set(SFML_BUILD_WINDOW ON CACHE BOOL "" FORCE)
-    set(SFML_BUILD_NETWORK OFF CACHE BOOL "" FORCE)
+    set(SFML_BUILD_NETWORK ON CACHE BOOL "" FORCE)
     set(SFML_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(SFML_BUILD_DOC OFF CACHE BOOL "" FORCE)
     
@@ -67,6 +67,12 @@ set(SOURCES
     src/world/PlayerInteraction.cpp
     src/world/PlayerView.cpp
     src/world/CraftingSystem.cpp
+    src/menu/MenuWidget.cpp
+    src/menu/MenuManager.cpp
+    src/world/WorldSave.cpp
+    src/network/Packet.cpp
+    src/network/Server.cpp
+    src/network/Client.cpp
 )
 
 add_executable(3D-game ${SOURCES})
@@ -80,12 +86,14 @@ if(USE_SYSTEM_SFML)
         SFML::Graphics
         SFML::Window
         SFML::System
+        SFML::Network
     )
 else()
     target_link_libraries(3D-game PRIVATE
         sfml-graphics
         sfml-window
         sfml-system
+        sfml-network
     )
 endif()
 
