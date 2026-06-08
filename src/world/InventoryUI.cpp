@@ -14,7 +14,9 @@ InventoryUI::InventoryUI() {
 void InventoryUI::loadFont() {
     std::string fontPath = "assets/fonts/minecraft.ttf";
     if (!std::filesystem::exists(fontPath)) {
-        fontPath = "/System/Library/Fonts/Helvetica.ttc";
+        fontPath = "assets/minecraft-rus-regular1.ttf";
+        if (!std::filesystem::exists(fontPath))
+            fontPath = "/System/Library/Fonts/Helvetica.ttc";
     }
     m_fontLoaded = m_font.openFromFile(fontPath);
 }

@@ -23,7 +23,9 @@ MenuManager::MenuManager()
 }
 
 void MenuManager::loadFont() {
-    m_fontLoaded = m_font.openFromFile("/System/Library/Fonts/Helvetica.ttc");
+    m_fontLoaded = m_font.openFromFile("assets/minecraft-rus-regular1.ttf");
+    if (!m_fontLoaded)
+        m_fontLoaded = m_font.openFromFile("/System/Library/Fonts/Helvetica.ttc");
 }
 
 void MenuManager::init(Game* game, unsigned int windowWidth, unsigned int windowHeight) {
