@@ -1,5 +1,6 @@
 #include "Client.h"
 #include <iostream>
+#include <algorithm>
 
 Client::Client() = default;
 
