@@ -9,6 +9,7 @@ constexpr float JUMP_VELOCITY = 8.5f;
 constexpr float FLY_SPEED = 12.0f;
 constexpr float DOUBLE_TAP_MS = 0.3f;
 
+// Tests whether the player AABB overlaps any blocking block.
 bool Camera::aabbTest(const World& world, float footX, float footY, float footZ, float checkHeight)
 {
     float minX = footX - PLAYER_RADIUS;
@@ -33,6 +34,7 @@ bool Camera::aabbTest(const World& world, float footX, float footY, float footZ,
     return false;
 }
 
+// Initializes orientation from target direction.
 Camera::Camera(const Vector3& position, const Vector3& target, const Vector3& up)
     : m_position(position)
     , m_velocityY(0.0f)
@@ -45,6 +47,7 @@ Camera::Camera(const Vector3& position, const Vector3& target, const Vector3& up
     m_pitch = std::asin(std::clamp(m_forward.y, -1.0f, 1.0f));
 }
 
+// Moves along the forward axis with collision (survival/creative walking).
 void Camera::moveForward(float distance, const World& world)
 {
     if (m_mode == Mode::Spectator) {
@@ -64,7 +67,8 @@ void Camera::moveForward(float distance, const World& world)
 
     Vector3 moveDir = Vector3(m_forward.x, 0, m_forward.z).normalize();
     float feetY = m_position.y - PLAYER_HEIGHT;
-    float checkHeight = 0.1f;
+    // Use 1.0-block height check to prevent slipping through 1-block gaps.
+    float checkHeight = 1.0f;
 
     float nx = m_position.x + moveDir.x * distance;
     if (!aabbTest(world, nx, feetY, m_position.z, checkHeight)) m_position.x = nx;
@@ -73,6 +77,7 @@ void Camera::moveForward(float distance, const World& world)
     if (!aabbTest(world, m_position.x, feetY, nz, checkHeight)) m_position.z = nz;
 }
 
+// Moves along the right axis with collision (survival/creative walking).
 void Camera::moveRight(float distance, const World& world)
 {
     if (m_mode == Mode::Spectator) {
@@ -92,7 +97,7 @@ void Camera::moveRight(float distance, const World& world)
 
     Vector3 moveDir = Vector3(m_right.x, 0, m_right.z).normalize();
     float feetY = m_position.y - PLAYER_HEIGHT;
-    float checkHeight = 0.1f;
+    float checkHeight = 1.0f;
 
     float nx = m_position.x + moveDir.x * distance;
     if (!aabbTest(world, nx, feetY, m_position.z, checkHeight)) m_position.x = nx;
@@ -101,6 +106,7 @@ void Camera::moveRight(float distance, const World& world)
     if (!aabbTest(world, m_position.x, feetY, nz, checkHeight)) m_position.z = nz;
 }
 
+// Moves vertically (creative/spectator only).
 void Camera::moveUp(float distance, const World& world)
 {
     if (m_mode == Mode::Survival) return;
@@ -119,6 +125,7 @@ void Camera::moveUp(float distance, const World& world)
     }
 }
 
+// Handles space bar press for jumping and creative double-tap fly toggle.
 void Camera::handleSpacePress(const World& world, float currentTime)
 {
     if (m_mode == Mode::Survival) {
@@ -155,17 +162,20 @@ void Camera::handleSpaceRelease()
 {
 }
 
+// Resets velocity when flying (creative mode).
 void Camera::updateFlying(float dt, const World& world)
 {
     if (m_mode != Mode::Creative || !m_flying) return;
     m_velocityY = 0;
 }
 
+// Returns true if the player is standing on a solid block.
 bool Camera::isOnGround(const World& world) const
 {
     return aabbTest(world, m_position.x, m_position.y - PLAYER_HEIGHT - 0.05f, m_position.z);
 }
 
+// Applies gravity, resolves vertical collisions, and updates ground state.
 void Camera::updatePhysics(float dt, const World& world)
 {
     if (m_mode == Mode::Spectator) return;
@@ -208,11 +218,16 @@ void Camera::updatePhysics(float dt, const World& world)
     }
 }
 
+// Applies yaw/pitch rotation and rebuilds the forward/right/up vectors.
 void Camera::rotate(float yaw, float pitch)
 {
     m_yaw += yaw;
     m_pitch += pitch;
-    m_pitch = std::clamp(m_pitch, -1.48f, 1.48f);
+
+    const float MAX_PITCH_UP = 1.57f;
+    const float MAX_PITCH_DOWN = 1.57f;
+
+    m_pitch = std::clamp(m_pitch, -MAX_PITCH_DOWN, MAX_PITCH_UP);
 
     m_forward = Vector3(
         std::cos(m_pitch) * std::cos(m_yaw),
@@ -224,6 +239,7 @@ void Camera::rotate(float yaw, float pitch)
     m_up = m_right.cross(m_forward).normalize();
 }
 
+// Cycles through Survival -> Creative -> Spectator -> Survival.
 void Camera::cycleMode()
 {
     switch (m_mode)

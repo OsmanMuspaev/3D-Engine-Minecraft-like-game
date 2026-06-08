@@ -1,3 +1,4 @@
+// Entry point for the 3D voxel engine application.
 #include "core/Game.h"
 
 int main() {

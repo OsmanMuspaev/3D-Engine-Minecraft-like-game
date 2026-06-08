@@ -5,6 +5,7 @@
 #include "Chunk.h"
 #include "BiomeManager.h"
 
+// Manages all chunks in the world, terrain generation, and block access
 class World {
 public:
     World();
@@ -12,6 +13,7 @@ public:
     void setBlock(int x, int y, int z, BlockType type);
     Block getBlock(int x, int y, int z) const;
 
+    // Generates terrain in a rectangular area around the origin
     void generate(int radiusX, int radiusZ);
 
     void draw(Renderer& renderer, const TextureManager& texMgr,
@@ -27,5 +29,6 @@ private:
     std::map<std::tuple<int, int, int>, std::unique_ptr<Chunk>> m_chunks;
     BiomeManager m_biomeMgr;
 
+    // Places a tree at the given world position
     void createTree(int x, int y, int z);
 };

@@ -5,6 +5,7 @@
 
 PlayerInteraction::PlayerInteraction() = default;
 
+// Performs a step-based raycast from the camera position along its forward direction.
 RaycastResult PlayerInteraction::raycast(const Camera& camera, const World& world) const {
     RaycastResult result;
     Vector3 pos = camera.getPosition();
@@ -27,6 +28,7 @@ RaycastResult PlayerInteraction::raycast(const Camera& camera, const World& worl
             result.blockType = block.type;
             result.distance = dist;
 
+            // Determine surface normal from the last step position
             int lbx = static_cast<int>(std::floor(lastPos.x));
             int lby = static_cast<int>(std::floor(lastPos.y));
             int lbz = static_cast<int>(std::floor(lastPos.z));
@@ -43,6 +45,7 @@ RaycastResult PlayerInteraction::raycast(const Camera& camera, const World& worl
     return result;
 }
 
+// Checks whether placing a block at pos would collide with the player's body.
 bool PlayerInteraction::canPlaceBlock(const World& world, const Vector3& pos, const Camera& camera) const {
     int bx = static_cast<int>(pos.x);
     int by = static_cast<int>(pos.y);
@@ -65,6 +68,7 @@ bool PlayerInteraction::canPlaceBlock(const World& world, const Vector3& pos, co
     return true;
 }
 
+// Updates the current target block via raycast each frame.
 void PlayerInteraction::update(float dt, const Camera& camera, World& world, Inventory& inventory) {
     RaycastResult result = raycast(camera, world);
 
@@ -77,6 +81,7 @@ void PlayerInteraction::update(float dt, const Camera& camera, World& world, Inv
     }
 }
 
+// Handles left click: breaks the targeted block and adds it to inventory in survival mode.
 void PlayerInteraction::handleLeftClick(const Camera& camera, World& world, Inventory& inventory) {
     RaycastResult result = raycast(camera, world);
 
@@ -108,6 +113,7 @@ void PlayerInteraction::handleLeftClick(const Camera& camera, World& world, Inve
     }
 }
 
+// Handles right click: places the selected block on the adjacent face of the targeted block.
 void PlayerInteraction::handleRightClick(const Camera& camera, World& world, Inventory& inventory) {
     RaycastResult result = raycast(camera, world);
 
@@ -123,6 +129,7 @@ void PlayerInteraction::handleRightClick(const Camera& camera, World& world, Inv
 
     const Item& item = ItemRegistry::instance().getItem(selectedItem.type);
     if (item.blockType == BlockType::AIR) return;
+    if (Inventory::isArmor(selectedItem.type)) return;
 
     Camera::Mode mode = camera.getMode();
 

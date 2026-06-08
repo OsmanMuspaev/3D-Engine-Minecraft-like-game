@@ -17,10 +17,12 @@ Vector3 Vector3::operator*(float scalar) const {
     return Vector3(x * scalar, y * scalar, z * scalar);
 }
 
+// Dot product: sum of component-wise products
 float Vector3::dot(const Vector3& other) const {
     return (x * other.x) + (y * other.y) + (z * other.z);
 }
 
+// Cross product: perpendicular vector to both inputs
 Vector3 Vector3::cross(const Vector3& other) const {
     return Vector3(
         (y * other.z) - (z * other.y),
@@ -29,10 +31,12 @@ Vector3 Vector3::cross(const Vector3& other) const {
     );
 }
 
+// Euclidean length of the vector
 float Vector3::length() const {
     return std::sqrt((x*x) + (y*y) + (z*z));
 }
 
+// Returns a normalized copy; returns zero vector if length is near zero
 Vector3 Vector3::normalize() const {
     float len = length();
     if (len > 0.0001f) {

@@ -65,6 +65,8 @@ set(SOURCES
     src/world/Inventory.cpp
     src/world/InventoryUI.cpp
     src/world/PlayerInteraction.cpp
+    src/world/PlayerView.cpp
+    src/world/CraftingSystem.cpp
 )
 
 add_executable(3D-game ${SOURCES})

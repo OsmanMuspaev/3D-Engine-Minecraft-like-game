@@ -17,14 +17,17 @@ Vector4 Vector4::operator*(float scalar) const {
     return Vector4(x * scalar, y * scalar, z * scalar, w * scalar);
 }
 
+// Dot product: sum of component-wise products
 float Vector4::dot(const Vector4& other) const {
     return (x * other.x) + (y * other.y) + (z * other.z) + (w * other.w);
 }
 
+// Euclidean length of the vector
 float Vector4::length() const {
     return std::sqrt((x*x) + (y*y) + (z*z) + (w*w));
 }
 
+// Returns a normalized copy; returns zero vector if length is near zero
 Vector4 Vector4::normalize() const {
     float len = length();
     if (len > 0.0001f) {

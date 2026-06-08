@@ -2,19 +2,23 @@
 #include "World.h"
 #include "BlockRegistry.h"
 
+// Initializes a chunk at the given chunk coordinates with all-air blocks
 Chunk::Chunk(int cx, int cy, int cz) : m_cx(cx), m_cy(cy), m_cz(cz) {
     m_blocks.resize(SIZE * SIZE * SIZE, Block(BlockType::AIR));
 }
 
+// Sets the block type at local coordinates and marks the chunk dirty
 void Chunk::setBlock(int x, int y, int z, BlockType type) {
     m_blocks[index(x, y, z)].type = type;
     m_dirty = true;
 }
 
+// Returns the block at local coordinates
 Block Chunk::getBlock(int x, int y, int z) const {
     return m_blocks[index(x, y, z)];
 }
 
+// Appends two triangles (6 indices) for a quad face
 void Chunk::addFaceData(const std::array<sf::Vector2f, 4>& faceUVs,
                          const sf::Color& tintColor) const
 {
@@ -26,6 +30,7 @@ void Chunk::addFaceData(const std::array<sf::Vector2f, 4>& faceUVs,
     }
 }
 
+// Rebuilds the chunk mesh by iterating all blocks and emitting visible faces
 void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
     m_meshVerts.clear();
     m_meshIndices.clear();
@@ -38,7 +43,7 @@ void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
         for (int z = 0; z < SIZE; z++) {
             for (int x = 0; x < SIZE; x++) {
                 Block block = getBlock(x, y, z);
-                if (!block.isSolid()) continue;
+                if (block.type == BlockType::AIR) continue;
 
                 int wx = m_cx * SIZE + x;
                 int wy = m_cy * SIZE + y;
@@ -50,11 +55,18 @@ void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
 
                 Biome biome = world.getBiome(wx, wz);
 
-                auto check = [&](int dx, int dy, int dz) {
-                    return !world.getBlock(wx + dx, wy + dy, wz + dz).isSolid();
+                // Determine if the current block is transparent
+                bool isTransparent = BlockRegistry::isTransparent(block.type);
+
+                // Determines whether a face should be rendered toward a neighbor
+                auto shouldRenderFace = [&](int dx, int dy, int dz) {
+                    Block neighbor = world.getBlock(wx + dx, wy + dy, wz + dz);
+                    if (isTransparent) return true;
+                    return !neighbor.isSolid() || BlockRegistry::isTransparent(neighbor.type);
                 };
 
-                if (check(1, 0, 0)) {
+                // +X face
+                if (shouldRenderFace(1, 0, 0)) {
                     m_meshVerts.push_back({fx + 1, fy,     fz + 1});
                     m_meshVerts.push_back({fx + 1, fy,     fz});
                     m_meshVerts.push_back({fx + 1, fy + 1, fz});
@@ -62,7 +74,8 @@ void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
                     addFaceData(texMgr.getUV(texIDs[FACE_PX]),
                                 world.getBiomeManager().getTintColor(biome, def.tintIndex[FACE_PX]));
                 }
-                if (check(-1, 0, 0)) {
+                // -X face
+                if (shouldRenderFace(-1, 0, 0)) {
                     m_meshVerts.push_back({fx, fy,     fz});
                     m_meshVerts.push_back({fx, fy,     fz + 1});
                     m_meshVerts.push_back({fx, fy + 1, fz + 1});
@@ -70,7 +83,8 @@ void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
                     addFaceData(texMgr.getUV(texIDs[FACE_NX]),
                                 world.getBiomeManager().getTintColor(biome, def.tintIndex[FACE_NX]));
                 }
-                if (check(0, 1, 0)) {
+                // +Y face (top)
+                if (shouldRenderFace(0, 1, 0)) {
                     m_meshVerts.push_back({fx,     fy + 1, fz + 1});
                     m_meshVerts.push_back({fx + 1, fy + 1, fz + 1});
                     m_meshVerts.push_back({fx + 1, fy + 1, fz});
@@ -78,7 +92,8 @@ void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
                     addFaceData(texMgr.getUV(texIDs[FACE_PY]),
                                 world.getBiomeManager().getTintColor(biome, def.tintIndex[FACE_PY]));
                 }
-                if (check(0, -1, 0)) {
+                // -Y face (bottom)
+                if (shouldRenderFace(0, -1, 0)) {
                     m_meshVerts.push_back({fx,     fy, fz});
                     m_meshVerts.push_back({fx + 1, fy, fz});
                     m_meshVerts.push_back({fx + 1, fy, fz + 1});
@@ -86,7 +101,8 @@ void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
                     addFaceData(texMgr.getUV(texIDs[FACE_NY]),
                                 world.getBiomeManager().getTintColor(biome, def.tintIndex[FACE_NY]));
                 }
-                if (check(0, 0, 1)) {
+                // +Z face
+                if (shouldRenderFace(0, 0, 1)) {
                     m_meshVerts.push_back({fx,     fy,     fz + 1});
                     m_meshVerts.push_back({fx + 1, fy,     fz + 1});
                     m_meshVerts.push_back({fx + 1, fy + 1, fz + 1});
@@ -94,7 +110,8 @@ void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
                     addFaceData(texMgr.getUV(texIDs[FACE_PZ]),
                                 world.getBiomeManager().getTintColor(biome, def.tintIndex[FACE_PZ]));
                 }
-                if (check(0, 0, -1)) {
+                // -Z face
+                if (shouldRenderFace(0, 0, -1)) {
                     m_meshVerts.push_back({fx + 1, fy,     fz});
                     m_meshVerts.push_back({fx,     fy,     fz});
                     m_meshVerts.push_back({fx,     fy + 1, fz});
@@ -108,6 +125,7 @@ void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
     m_dirty = false;
 }
 
+// Draws the chunk mesh if it has geometry
 void Chunk::draw(Renderer& renderer, const TextureManager& texMgr,
                  const Matrix4x4& view, const Matrix4x4& proj, const Vector3& cameraPos) const {
     if (m_meshIndices.empty()) return;

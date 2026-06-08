@@ -5,12 +5,14 @@
 #include <random>
 #include <iostream>
 
+// Initializes biome definitions and tint color tables with a random seed
 BiomeManager::BiomeManager() {
     std::random_device rd;
     unsigned int seed = rd();
     m_noise = Noise(seed);
     std::cout << "World seed: " << seed << "\n";
 
+    // Biome definitions
     m_defs[static_cast<size_t>(Biome::PLAINS)] = {
         "Plains", BlockType::GRASS, BlockType::DIRT, BlockType::STONE, true, 0.008f
     };
@@ -24,23 +26,26 @@ BiomeManager::BiomeManager() {
         "Forest", BlockType::GRASS, BlockType::DIRT, BlockType::STONE, true, 0.04f
     };
 
+    // Grass tint colors per biome
     m_grassColors[static_cast<size_t>(Biome::PLAINS)]   = sf::Color(124, 189, 107);
-    m_foliageColors[static_cast<size_t>(Biome::PLAINS)] = sf::Color(124, 189, 107);
-    m_waterColors[static_cast<size_t>(Biome::PLAINS)]   = sf::Color(63, 118, 228);
-
     m_grassColors[static_cast<size_t>(Biome::DESERT)]   = sf::Color(217, 211, 87);
-    m_foliageColors[static_cast<size_t>(Biome::DESERT)] = sf::Color(184, 224, 68);
-    m_waterColors[static_cast<size_t>(Biome::DESERT)]   = sf::Color(63, 118, 228);
-
     m_grassColors[static_cast<size_t>(Biome::SNOW)]     = sf::Color(240, 240, 240);
-    m_foliageColors[static_cast<size_t>(Biome::SNOW)]   = sf::Color(128, 176, 80);
-    m_waterColors[static_cast<size_t>(Biome::SNOW)]     = sf::Color(59, 79, 181);
-
     m_grassColors[static_cast<size_t>(Biome::FOREST)]   = sf::Color(85, 170, 85);
+
+    // Foliage tint colors per biome
+    m_foliageColors[static_cast<size_t>(Biome::PLAINS)] = sf::Color(124, 189, 107);
+    m_foliageColors[static_cast<size_t>(Biome::DESERT)] = sf::Color(184, 224, 68);
+    m_foliageColors[static_cast<size_t>(Biome::SNOW)]   = sf::Color(128, 176, 80);
     m_foliageColors[static_cast<size_t>(Biome::FOREST)] = sf::Color(72, 181, 24);
+
+    // Water tint colors per biome
+    m_waterColors[static_cast<size_t>(Biome::PLAINS)]   = sf::Color(63, 118, 228);
+    m_waterColors[static_cast<size_t>(Biome::DESERT)]   = sf::Color(63, 118, 228);
+    m_waterColors[static_cast<size_t>(Biome::SNOW)]     = sf::Color(59, 79, 181);
     m_waterColors[static_cast<size_t>(Biome::FOREST)]   = sf::Color(63, 118, 228);
 }
 
+// Selects biome based on temperature and moisture noise thresholds
 Biome BiomeManager::getBiome(int x, int z) const {
     float temp = m_noise.temperature((float)x, (float)z);
     float moist = m_noise.moisture((float)x, (float)z);
@@ -51,10 +56,12 @@ Biome BiomeManager::getBiome(int x, int z) const {
     return Biome::PLAINS;
 }
 
+// Returns the definition for the given biome
 const BiomeDef& BiomeManager::getDef(Biome biome) const {
     return m_defs[static_cast<size_t>(biome)];
 }
 
+// Returns the tint color for the biome and tint type
 sf::Color BiomeManager::getTintColor(Biome biome, int tintType) const {
     size_t idx = static_cast<size_t>(biome);
     switch (tintType) {
@@ -65,6 +72,7 @@ sf::Color BiomeManager::getTintColor(Biome biome, int tintType) const {
     }
 }
 
+// Computes terrain height using FBM noise, adjusted per biome
 float BiomeManager::getBaseHeight(int x, int z) const {
     float height = m_noise.fbm((float)x * 0.01f, (float)z * 0.01f, 6, 2.0f, 0.5f);
     float detail = m_noise.fbm((float)x * 0.05f, (float)z * 0.05f, 3, 2.0f, 0.5f) * 0.3f;

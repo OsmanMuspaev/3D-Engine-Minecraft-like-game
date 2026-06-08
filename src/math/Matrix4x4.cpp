@@ -1,6 +1,7 @@
 #include <cmath>
 #include "Matrix4x4.h"
 
+// Initializes to identity matrix
 Matrix4x4::Matrix4x4() {
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
@@ -17,6 +18,7 @@ const float* Matrix4x4::operator[](int row) const {
     return m[row];
 }
 
+// Standard 4x4 matrix multiplication
 Matrix4x4 Matrix4x4::operator*(const Matrix4x4& other) const {
     Matrix4x4 result;
     for (int i = 0; i < 4; i++) {
@@ -30,6 +32,7 @@ Matrix4x4 Matrix4x4::operator*(const Matrix4x4& other) const {
     return result;
 }
 
+// Transforms a 4D vector by this matrix
 Vector4 Matrix4x4::operator*(const Vector4& v) const {
     return Vector4(
         m[0][0]*v.x + m[0][1]*v.y + m[0][2]*v.z + m[0][3]*v.w,
@@ -39,10 +42,12 @@ Vector4 Matrix4x4::operator*(const Vector4& v) const {
     );
 }
 
+// Returns identity matrix
 Matrix4x4 Matrix4x4::identity() {
     return Matrix4x4();
 }
 
+// Translation matrix
 Matrix4x4 Matrix4x4::translation(float x, float y, float z) {
     Matrix4x4 result;
     result.m[0][3] = x;
@@ -51,6 +56,7 @@ Matrix4x4 Matrix4x4::translation(float x, float y, float z) {
     return result;
 }
 
+// Scale matrix
 Matrix4x4 Matrix4x4::scale(float x, float y, float z) {
     Matrix4x4 result;
     result.m[0][0] = x;
@@ -59,6 +65,7 @@ Matrix4x4 Matrix4x4::scale(float x, float y, float z) {
     return result;
 }
 
+// Rotation matrix around X axis
 Matrix4x4 Matrix4x4::rotationX(float angle) {
     Matrix4x4 result;
     float c = std::cos(angle);
@@ -70,6 +77,7 @@ Matrix4x4 Matrix4x4::rotationX(float angle) {
     return result;
 }
 
+// Rotation matrix around Y axis
 Matrix4x4 Matrix4x4::rotationY(float angle) {
     Matrix4x4 result;
     float c = std::cos(angle);
@@ -81,6 +89,7 @@ Matrix4x4 Matrix4x4::rotationY(float angle) {
     return result;
 }
 
+// Rotation matrix around Z axis
 Matrix4x4 Matrix4x4::rotationZ(float angle) {
     Matrix4x4 result;
     float c = std::cos(angle);
@@ -92,7 +101,7 @@ Matrix4x4 Matrix4x4::rotationZ(float angle) {
     return result;
 }
 
-// Перспективная проекция
+// Perspective projection matrix
 Matrix4x4 Matrix4x4::perspective(float fov, float aspect, float near, float far) {
     Matrix4x4 result;
     float tanHalfFov = std::tan(fov * 3.14159f / 180.0f / 2.0f);
@@ -105,7 +114,7 @@ Matrix4x4 Matrix4x4::perspective(float fov, float aspect, float near, float far)
     return result;
 }
 
-// Матрица вида (lookAt)
+// View matrix looking from eye toward target
 Matrix4x4 Matrix4x4::lookAt(const Vector3& eye, const Vector3& target, const Vector3& up) {
     Vector3 forward = (target - eye).normalize();
     Vector3 right = forward.cross(up).normalize();

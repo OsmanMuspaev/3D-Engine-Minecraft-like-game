@@ -1,5 +1,6 @@
 #pragma once
 
+// 4D vector used for homogeneous coordinates and projections
 class Vector4 {
 public:
     float x, y, z, w;
@@ -13,5 +14,6 @@ public:
 
     float dot(const Vector4& other) const;
     float length() const;
+    // Returns a normalized copy; returns zero vector if length is near zero
     Vector4 normalize() const;
 };

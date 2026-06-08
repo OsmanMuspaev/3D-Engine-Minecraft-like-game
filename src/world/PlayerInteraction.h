@@ -5,6 +5,7 @@
 #include "Item.h"
 #include "../core/Camera.h"
 
+// Result of a raycast against the world, storing hit info and surface normal.
 struct RaycastResult {
     bool hit = false;
     Vector3 blockPos;
@@ -13,6 +14,7 @@ struct RaycastResult {
     BlockType blockType = BlockType::AIR;
 };
 
+// Handles player block interactions: breaking, placing, and raycasting.
 class PlayerInteraction {
 public:
     static constexpr float REACH_DISTANCE = 5.0f;
@@ -28,7 +30,10 @@ public:
     const Vector3* getTargetBlockPos() const { return m_currentTarget ? &m_targetBlockPos : nullptr; }
 
 private:
+    // Performs a step-based raycast and returns the first solid block hit.
     RaycastResult raycast(const Camera& camera, const World& world) const;
+
+    // Checks if a block can be placed at the given position without overlapping the player.
     bool canPlaceBlock(const World& world, const Vector3& pos, const Camera& camera) const;
 
     float m_breakProgress = 0.0f;

@@ -5,20 +5,23 @@
 #include <future>
 #include <vector>
 
+// Initializes renderer with depth buffer, image, texture, and default light direction
 Renderer::Renderer(unsigned int width, unsigned int height)
     : m_width(width), m_height(height)
 {
     m_depthBuffer.resize(width * height, std::numeric_limits<float>::infinity());
     m_image.resize({width, height}, sf::Color::Black);
-    m_imageTexture.resize({width, height});
+    (void)m_imageTexture.resize({width, height});
     m_lightDir = Vector3(0.3f, -0.8f, -0.5f).normalize();
     m_clearColor = sf::Color::Black;
 }
 
+// Sets and normalizes the global light direction
 void Renderer::setLightDirection(const Vector3& dir) {
     m_lightDir = dir.normalize();
 }
 
+// Fills the entire buffer with a single color and resets the depth buffer
 void Renderer::clear(sf::Color color)
 {
     m_clearColor = color;
@@ -26,6 +29,18 @@ void Renderer::clear(sf::Color color)
     std::fill(m_depthBuffer.begin(), m_depthBuffer.end(), std::numeric_limits<float>::infinity());
 }
 
+// Clears a rectangular region of the image and depth buffer
+void Renderer::clearRect(unsigned int x, unsigned int y, unsigned int w, unsigned int h, sf::Color color)
+{
+    for (unsigned int py = y; py < y + h && py < m_height; ++py) {
+        for (unsigned int px = x; px < x + w && px < m_width; ++px) {
+            m_image.setPixel({px, py}, color);
+            m_depthBuffer[py * m_width + px] = std::numeric_limits<float>::infinity();
+        }
+    }
+}
+
+// Transforms vertices by MVP matrix and projects to screen coordinates
 static std::vector<Vector4> transformVertices(
     const std::vector<Vector3>& vertices,
     const Matrix4x4& mvp,
@@ -51,12 +66,14 @@ static std::vector<Vector4> transformVertices(
     return result;
 }
 
+// Rasterizes all triangles within the vertical range [yStart, yEnd)
 void Renderer::rasterizeStripe(
     int yStart, int yEnd,
     const std::vector<RenderTriangle>& triangles,
     const uint8_t* texPixels, sf::Vector2u texSize)
 {
     for (const auto& tri : triangles) {
+        // Compute bounding box clipped to stripe
         int minX = std::max(0, (int)std::floor(std::min({tri.v0.x, tri.v1.x, tri.v2.x})));
         int maxX = std::min((int)m_width - 1, (int)std::ceil(std::max({tri.v0.x, tri.v1.x, tri.v2.x})));
         int minY = std::max(yStart, (int)std::floor(std::min({tri.v0.y, tri.v1.y, tri.v2.y})));
@@ -71,6 +88,7 @@ void Renderer::rasterizeStripe(
                 float fx = px + 0.5f;
                 float fy = py + 0.5f;
 
+                // Barycentric coordinates for point inside triangle
                 float w0 = ((tri.v1.y - tri.v2.y) * (fx - tri.v2.x) + (tri.v2.x - tri.v1.x) * (fy - tri.v2.y)) * invDenom;
                 float w1 = ((tri.v2.y - tri.v0.y) * (fx - tri.v2.x) + (tri.v0.x - tri.v2.x) * (fy - tri.v2.y)) * invDenom;
                 float w2 = 1.0f - w0 - w1;
@@ -83,6 +101,7 @@ void Renderer::rasterizeStripe(
                 if (z >= m_depthBuffer[idx]) continue;
 
                 if (texPixels) {
+                    // Perspective-correct UV interpolation
                     float interpInvW = w0 * tri.invW0 + w1 * tri.invW1 + w2 * tri.invW2;
                     float u = (w0 * tri.uv0.x * tri.invW0 + w1 * tri.uv1.x * tri.invW1 + w2 * tri.uv2.x * tri.invW2) / interpInvW;
                     float v = (w0 * tri.uv0.y * tri.invW0 + w1 * tri.uv1.y * tri.invW1 + w2 * tri.uv2.y * tri.invW2) / interpInvW;
@@ -91,6 +110,7 @@ void Renderer::rasterizeStripe(
                     int ty = (int)v % texSize.y;
                     int ti = (ty * (int)texSize.x + tx) * 4;
 
+                    // Skip transparent pixels
                     if (texPixels[ti + 3] < 128) continue;
 
                     m_depthBuffer[idx] = z;
@@ -109,6 +129,7 @@ void Renderer::rasterizeStripe(
     }
 }
 
+// Builds render triangles, applies back-face culling and lighting, then dispatches rasterization
 void Renderer::drawMeshInternal(
     const std::vector<Vector4>& transformed,
     const std::vector<Vector3>& vertices,
@@ -118,7 +139,8 @@ void Renderer::drawMeshInternal(
     const sf::Image* image,
     const Matrix4x4& model,
     sf::Color baseColor,
-    const Vector3& cameraPos)
+    const Vector3& cameraPos,
+    bool disableCulling)
 {
     std::vector<RenderTriangle> triangles;
     triangles.reserve(indices.size() / 3);
@@ -127,9 +149,11 @@ void Renderer::drawMeshInternal(
     {
         unsigned int i0 = indices[i], i1 = indices[i+1], i2 = indices[i+2];
 
+        // Skip degenerate triangles with near-zero w
         if (transformed[i0].w <= 0.01f || transformed[i1].w <= 0.01f || transformed[i2].w <= 0.01f)
             continue;
 
+        // Compute world-space positions and face normal
         Vector4 w0 = model * Vector4(vertices[i0].x, vertices[i0].y, vertices[i0].z, 1.0f);
         Vector4 w1 = model * Vector4(vertices[i1].x, vertices[i1].y, vertices[i1].z, 1.0f);
         Vector4 w2 = model * Vector4(vertices[i2].x, vertices[i2].y, vertices[i2].z, 1.0f);
@@ -139,10 +163,13 @@ void Renderer::drawMeshInternal(
         Vector3 edge2(w2.x - w0.x, w2.y - w0.y, w2.z - w0.z);
         Vector3 normal = edge1.cross(edge2).normalize();
 
-        // Back-face culling
+        // Back-face culling: discard if normal faces camera
         Vector3 viewDir = (worldV0 - cameraPos).normalize();
-        if (normal.dot(viewDir) > 0.1f) continue;
+        if (!disableCulling) {
+            if (normal.dot(viewDir) > 0.1f) continue;
+        }
 
+        // Compute lighting brightness from dot with light direction
         float dotLight = normal.dot(m_lightDir * -1.0f);
         float brightness = std::max(0.25f, std::min(1.0f, 0.25f + 0.75f * dotLight));
 
@@ -156,6 +183,7 @@ void Renderer::drawMeshInternal(
         tri.tint = (tints && tints->size() > i0) ? (*tints)[i0] : sf::Color::White;
         if (uvs) { tri.uv0 = (*uvs)[i0]; tri.uv1 = (*uvs)[i1]; tri.uv2 = (*uvs)[i2]; }
 
+        // Precompute barycentric denominator and inverse w for perspective-correct interpolation
         float denom = (tri.v1.y - tri.v2.y)*(tri.v0.x - tri.v2.x) + (tri.v2.x - tri.v1.x)*(tri.v0.y - tri.v2.y);
         if (std::abs(denom) < 1e-6f) continue;
         tri.invDenom = 1.0f / denom;
@@ -169,7 +197,7 @@ void Renderer::drawMeshInternal(
     const uint8_t* texPixels = (image) ? image->getPixelsPtr() : nullptr;
     sf::Vector2u texSize = (image) ? image->getSize() : sf::Vector2u(0,0);
 
-    // Многопоточная растеризация
+    // Multi-threaded rasterization: split screen into horizontal stripes
     unsigned int numThreads = std::thread::hardware_concurrency();
     std::vector<std::future<void>> futures;
     int stripeHeight = m_height / numThreads;
@@ -185,15 +213,17 @@ void Renderer::drawMeshInternal(
     for (auto& f : futures) f.get();
 }
 
+// Builds MVP matrix, transforms vertices, and calls internal draw
 void Renderer::drawMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned int>& indices,
                         const std::vector<sf::Vector2f>& uvs, const std::vector<sf::Color>& tints,
                         const sf::Image& image,
-                        const Matrix4x4& model, const Matrix4x4& view, const Matrix4x4& proj, const Vector3& cameraPos) {
+                        const Matrix4x4& model, const Matrix4x4& view, const Matrix4x4& proj, const Vector3& cameraPos, bool disableCulling) {
     Matrix4x4 mvp = proj * view * model;
     auto transformed = transformVertices(vertices, mvp, m_width * 0.5f, m_height * 0.5f);
-    drawMeshInternal(transformed, vertices, indices, &uvs, &tints, &image, model, sf::Color::White, cameraPos);
+    drawMeshInternal(transformed, vertices, indices, &uvs, &tints, &image, model, sf::Color::White, cameraPos, disableCulling);
 }
 
+// Copies the internal image to a texture and draws it scaled to the window
 void Renderer::display(sf::RenderWindow& window) {
     m_imageTexture.update(m_image);
     sf::Sprite sprite(m_imageTexture);
