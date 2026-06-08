@@ -2,6 +2,7 @@
 #include "Chunk.h"
 #include <fstream>
 #include <filesystem>
+#include <algorithm>
 #include <cstring>
 
 namespace fs = std::filesystem;
