@@ -5,13 +5,21 @@
 #include <filesystem>
 #include <cstdio>
 #include <array>
-#include <ifaddrs.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <unistd.h>
 #include <vector>
 #include <sstream>
 #include <cmath>
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+#define popen _popen
+#define pclose _pclose
+#else
+#include <ifaddrs.h>
+#include <arpa/inet.h>
+#include <net/if.h>
+#endif
 
 using CameraViewType = PlayerView::CameraViewType;
 
@@ -105,7 +113,9 @@ void Game::initRenderer(float scale) {
 
 // Loads a system font for HUD text rendering.
 void Game::loadFont() {
-    std::string fontPath = "/System/Library/Fonts/Helvetica.ttc";
+    std::string fontPath = "assets/minecraft-rus-regular1.ttf";
+    if (!std::filesystem::exists(fontPath))
+        fontPath = "/System/Library/Fonts/Helvetica.ttc";
     if (!std::filesystem::exists(fontPath)) {
         fontPath = "/System/Library/Fonts/Arial.ttf";
     }
@@ -757,6 +767,28 @@ void Game::startServer(bool useTunnel) {
 // ---------------------------------------------------------------------------
 
 std::string Game::getLocalIP() {
+#ifdef _WIN32
+    // Windows: connect a UDP socket to find the outgoing interface
+    SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock == INVALID_SOCKET)
+        return "127.0.0.1";
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(53000);
+    inet_pton(AF_INET, "8.8.8.8", &addr.sin_addr);
+
+    connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+
+    sockaddr_in result{};
+    socklen_t len = sizeof(result);
+    getsockname(sock, reinterpret_cast<sockaddr*>(&result), &len);
+    closesocket(sock);
+
+    char buf[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &result.sin_addr, buf, sizeof(buf));
+    return buf;
+#else
     struct ifaddrs* ifas = nullptr;
     if (getifaddrs(&ifas) != 0)
         return "127.0.0.1";
@@ -779,6 +811,7 @@ std::string Game::getLocalIP() {
     }
     freeifaddrs(ifas);
     return result;
+#endif
 }
 
 // ---------------------------------------------------------------------------

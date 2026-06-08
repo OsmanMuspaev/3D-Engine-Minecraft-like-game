@@ -97,6 +97,10 @@ else()
     )
 endif()
 
+if(WIN32)
+    target_link_libraries(3D-game PRIVATE ws2_32)
+endif()
+
 add_custom_command(TARGET 3D-game POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/assets"
