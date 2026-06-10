@@ -722,6 +722,9 @@ void Game::connectToServer(const std::string& address) {
 
     if (m_client.connect(host, port)) {
         m_isClient = true;
+        addDefaultInventory();
+        // Position camera at a safe spawn point above the terrain.
+        m_camera = Camera(Vector3(8.0f, 30.0f, 8.0f), Vector3(0, 25, 1), Vector3(0, 1, 0));
         m_menu.setState(MenuState::Playing);
         std::cout << "Connected to " << host << ":" << port << "\n";
     } else {

@@ -35,6 +35,8 @@ private:
         int id = 0;
         PlayerState state;
         bool connected = true;
+        bool ready = false;
+        float connectedTime = 0.0f;
     };
 
     void acceptClients();

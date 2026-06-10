@@ -117,18 +117,30 @@ void Server::setHostPosition(float x, float y, float z, float yaw, float pitch) 
 std::vector<PlayerState> Server::getClientStates() const {
     std::vector<PlayerState> states;
     for (auto& client : m_clients) {
-        if (client->connected)
+        if (client->connected && client->ready)
             states.push_back(client->state);
     }
     return states;
 }
 
-void Server::update(float /*dt*/) {
+void Server::update(float dt) {
     if (!m_running)
         return;
 
     acceptClients();
     handleClientPackets();
+
+    // Disconnect clients that never sent a valid packet within 5 seconds.
+    for (auto& client : m_clients) {
+        if (client->connected) {
+            client->connectedTime += dt;
+            if (!client->ready && client->connectedTime > 5.0f) {
+                std::cout << "[Server] Client " << client->id << " timed out (no handshake).\n";
+                client->connected = false;
+                client->socket.disconnect();
+            }
+        }
+    }
 
     m_broadcastTimer += 1.0f / 60.0f;
     if (m_broadcastTimer >= 0.05f) {
@@ -178,6 +190,17 @@ void Server::handleClientPackets() {
             PacketType type;
             packet >> type;
 
+            // Non-ready clients must send PlayerMove first to prove they are real.
+            if (!client->ready) {
+                if (type == PacketType::PlayerMove) {
+                    packet >> client->state;
+                    client->state.id = client->id;
+                    client->ready = true;
+                    std::cout << "[Server] Client " << client->id << " is ready.\n";
+                }
+                continue;
+            }
+
             switch (type) {
                 case PacketType::PlayerMove: {
                     packet >> client->state;
@@ -193,7 +216,7 @@ void Server::handleClientPackets() {
                         bc << PacketType::BlockUpdate << bx << by << bz
                            << static_cast<unsigned int>(BlockType::AIR);
                         for (auto& other : m_clients) {
-                            if (other->connected)
+                            if (other->connected && other->ready)
                                 (void)other->socket.send(bc);
                         }
                     }
@@ -208,7 +231,7 @@ void Server::handleClientPackets() {
                         sf::Packet bc;
                         bc << PacketType::BlockUpdate << bx << by << bz << bt;
                         for (auto& other : m_clients) {
-                            if (other->connected)
+                            if (other->connected && other->ready)
                                 (void)other->socket.send(bc);
                         }
                     }
@@ -220,7 +243,7 @@ void Server::handleClientPackets() {
                     sf::Packet bc;
                     bc << PacketType::ChatBroadcast << client->state.name << msg;
                     for (auto& other : m_clients) {
-                        if (other->connected)
+                        if (other->connected && other->ready)
                             (void)other->socket.send(bc);
                     }
                     break;
@@ -234,7 +257,7 @@ void Server::handleClientPackets() {
             sf::Packet bc;
             bc << PacketType::PlayerDespawn << client->id;
             for (auto& other : m_clients) {
-                if (other->connected)
+                if (other->connected && other->ready)
                     (void)other->socket.send(bc);
             }
         }
@@ -248,7 +271,7 @@ void Server::handleClientPackets() {
 
 void Server::broadcastPositions() {
     for (auto& client : m_clients) {
-        if (!client->connected)
+        if (!client->connected || !client->ready)
             continue;
         // Send host position to this client.
         if (m_hasHostState) {
@@ -258,7 +281,7 @@ void Server::broadcastPositions() {
         }
         // Send other clients' positions to this client.
         for (auto& other : m_clients) {
-            if (other->id == client->id || !other->connected)
+            if (other->id == client->id || !other->connected || !other->ready)
                 continue;
             sf::Packet pkt;
             pkt << PacketType::PlayerPosition << other->state;
