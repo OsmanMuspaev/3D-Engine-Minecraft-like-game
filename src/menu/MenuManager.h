@@ -72,6 +72,7 @@ private:
     void drawMinecraftButton(sf::RenderWindow& window, const MenuButton& btn, const sf::Vector2f& mousePos);
     void drawPauseMenu(sf::RenderWindow& window, const sf::Vector2f& mousePos);
     void drawNetworkMenu(sf::RenderWindow& window, const sf::Vector2f& mousePos);
+    void drawMultiplayerMenu(sf::RenderWindow& window, const sf::Vector2f& mousePos);
     void drawCreateDialog(sf::RenderWindow& window, const sf::Vector2f& mousePos);
 
     MenuState m_state = MenuState::MainMenu;
@@ -114,6 +115,8 @@ private:
     bool m_wantsResume = false;
     bool m_wantsQuitToMenu = false;
     bool m_wantsQuit = false;
+
+    std::optional<TextInput> m_serverAddressInput;
 
     std::string m_serverInfoText;
 

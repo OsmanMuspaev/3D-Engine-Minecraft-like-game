@@ -18,9 +18,10 @@ public:
     Server();
     ~Server();
 
-    bool start(unsigned short port = 25565);
+    bool start(unsigned short port = 0);
     void stop();
     bool isRunning() const { return m_running; }
+    unsigned short getPort() const { return m_boundPort; }
 
     void setWorld(World* world, int worldSize);
     void update(float dt);
@@ -45,6 +46,7 @@ private:
     std::atomic<bool> m_running = false;
     int m_nextId = 1;
     float m_broadcastTimer = 0.0f;
+    unsigned short m_boundPort = 0;
 
     World* m_world = nullptr;
     int m_worldSize = 20;

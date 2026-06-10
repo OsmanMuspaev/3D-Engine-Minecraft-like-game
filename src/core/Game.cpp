@@ -607,7 +607,7 @@ void Game::render(float dt) {
 // Renders the menu screen and displays the frame.
 void Game::renderMenu() {
     m_window.setMouseCursorVisible(true);
-    m_menu.setServerStatus(m_isServer, 25565, m_tunnelUrl, m_tunnelRunning, m_isServer ? getLocalIP() : "");
+    m_menu.setServerStatus(m_isServer, m_server.getPort(), m_tunnelUrl, m_tunnelRunning, m_isServer ? getLocalIP() : "");
     m_menu.update(1.0f / 60.0f, m_window);
     m_menu.draw(m_window);
     m_window.display();
@@ -675,16 +675,29 @@ void Game::loadExistingWorld(const std::string& name) {
     }
 }
 
-// Parses a host:port address, connects to the server, and enters the Playing state.
+// Parses a host:port address or URL, connects to the server, and enters the Playing state.
 void Game::connectToServer(const std::string& address) {
-    std::string host = address;
-    unsigned short port = 25565;
+    std::string input = address;
 
-    auto colonPos = address.rfind(':');
+    // Strip https:// or http:// prefix
+    if (input.rfind("https://", 0) == 0)
+        input = input.substr(8);
+    else if (input.rfind("http://", 0) == 0)
+        input = input.substr(7);
+
+    // Strip trailing slash or path
+    auto slashPos = input.find('/');
+    if (slashPos != std::string::npos)
+        input = input.substr(0, slashPos);
+
+    std::string host = input;
+    unsigned short port = 443;
+
+    auto colonPos = input.rfind(':');
     if (colonPos != std::string::npos) {
-        host = address.substr(0, colonPos);
+        host = input.substr(0, colonPos);
         try {
-            port = static_cast<unsigned short>(std::stoi(address.substr(colonPos + 1)));
+            port = static_cast<unsigned short>(std::stoi(input.substr(colonPos + 1)));
         } catch (...) {
             std::cerr << "Invalid port in address: " << address << "\n";
             return;
@@ -700,32 +713,34 @@ void Game::connectToServer(const std::string& address) {
     }
 }
 
-// Starts the TCP server on port 25565 and enters the Playing state.
+// Starts the TCP server and enters the Playing state.
 void Game::startServer(bool useTunnel) {
     if (m_isServer) {
+        unsigned short port = m_server.getPort();
         if (useTunnel) {
-            launchLocalTunnel(25565);
+            launchLocalTunnel(port);
         } else {
             std::string ip = getLocalIP();
-            m_menu.showServerInfo("Local IP: " + ip + ":25565\n\nShare this address with other\nplayers on your local network.");
+            m_menu.showServerInfo("Local IP: " + ip + ":" + std::to_string(port) + "\n\nShare this address with other\nplayers on your local network.");
         }
         return;
     }
 
     m_server.stop();
 
-    if (m_server.start(25565)) {
+    if (m_server.start()) {
         m_isServer = true;
         m_server.setWorld(&m_world, m_menu.getWorldSize());
+        unsigned short port = m_server.getPort();
 
         if (useTunnel) {
-            launchLocalTunnel(25565);
+            launchLocalTunnel(port);
         } else {
             std::string ip = getLocalIP();
-            m_menu.showServerInfo("Local IP: " + ip + ":25565\n\nShare this address with other\nplayers on your local network.");
+            m_menu.showServerInfo("Local IP: " + ip + ":" + std::to_string(port) + "\n\nShare this address with other\nplayers on your local network.");
         }
     } else {
-        m_menu.showServerInfo("Failed to start server on port 25565.\nPort may be in use by another program.");
+        m_menu.showServerInfo("Failed to start server.\nAnother program may be using the port.");
     }
 }
 
@@ -738,7 +753,7 @@ std::string Game::getLocalIP() {
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(25565);
+    addr.sin_port = htons(80);
     inet_pton(AF_INET, "8.8.8.8", &addr.sin_addr);
 
     connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));

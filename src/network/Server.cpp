@@ -53,13 +53,18 @@ bool Server::start(unsigned short port) {
     addr.sin_port = htons(port);
 
     if (::bind(m_listenFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        std::cerr << "[Server] Failed to bind to port " << port << " (errno " << errno << ")\n";
+        int err = errno;
+        std::cerr << "[Server] Failed to bind to port " << port << " (errno " << err << ")\n";
         closeListener();
         return false;
     }
 
+    socklen_t addrLen = sizeof(addr);
+    getsockname(m_listenFd, (struct sockaddr*)&addr, &addrLen);
+    m_boundPort = ntohs(addr.sin_port);
+
     if (::listen(m_listenFd, 8) < 0) {
-        std::cerr << "[Server] Failed to listen on port " << port << "\n";
+        std::cerr << "[Server] Failed to listen on port " << m_boundPort << "\n";
         closeListener();
         return false;
     }
@@ -72,11 +77,14 @@ bool Server::start(unsigned short port) {
 #endif
 
     m_running = true;
-    std::cout << "[Server] Listening on port " << port << "\n";
+    std::cout << "[Server] Listening on port " << m_boundPort << "\n";
     return true;
 }
 
 void Server::stop() {
+    if (!m_running && m_listenFd < 0)
+        return;
+
     m_running = false;
 
     for (auto& client : m_clients) {

@@ -89,10 +89,18 @@ void MenuManager::setState(MenuState newState) {
     if (m_state == MenuState::SingleplayerMenu) {
         refreshWorldList();
     }
+    if (m_state == MenuState::MultiplayerMenu) {
+        float cx = m_windowWidth / 2.0f;
+        m_serverAddressInput.emplace("Server IP:Port", m_font, cx - BTN_WIDTH / 2.0f, m_windowHeight / 2.0f - 30.0f, BTN_WIDTH);
+    }
 }
 
 void MenuManager::handleEvent(const sf::Event& event, const sf::RenderWindow& window) {
     if (!m_fontLoaded) return;
+
+    if (m_state == MenuState::MultiplayerMenu && m_serverAddressInput) {
+        m_serverAddressInput->handleEvent(event);
+    }
 
     if (m_showCreateDialog && m_worldNameInput) {
         m_worldNameInput->handleEvent(event);
@@ -159,6 +167,13 @@ void MenuManager::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
     }
 
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+        if (key->code == sf::Keyboard::Key::Enter &&
+            m_state == MenuState::MultiplayerMenu && m_serverAddressInput &&
+            !m_serverAddressInput->text.empty()) {
+            m_serverAddress = m_serverAddressInput->text;
+            m_wantsConnect = true;
+            setState(MenuState::Playing);
+        }
         if (key->code == sf::Keyboard::Key::Escape) {
             if (m_state == MenuState::SingleplayerMenu ||
                 m_state == MenuState::MultiplayerMenu ||
@@ -203,6 +218,9 @@ void MenuManager::draw(sf::RenderWindow& window) {
             break;
         case MenuState::NetworkMenu:
             drawNetworkMenu(window, mousePos);
+            break;
+        case MenuState::MultiplayerMenu:
+            drawMultiplayerMenu(window, mousePos);
             break;
         default:
             break;
@@ -284,6 +302,14 @@ void MenuManager::drawMinecraftButton(sf::RenderWindow& window, const MenuButton
             case 31: m_wantsOpenToTunnel = true; break;
             case 32: setState(MenuState::NetworkMenu); break;
             case 33: setState(MenuState::PauseMenu); break;
+            case 34:
+                if (m_serverAddressInput && !m_serverAddressInput->text.empty()) {
+                    m_serverAddress = m_serverAddressInput->text;
+                    m_wantsConnect = true;
+                    setState(MenuState::Playing);
+                }
+                break;
+            case 35: setState(MenuState::MainMenu); break;
             case 14:
                 if (m_worldNameInput && !m_worldNameInput->text.empty()) {
                     m_newWorldName = m_worldNameInput->text;
@@ -477,6 +503,35 @@ void MenuManager::drawNetworkMenu(sf::RenderWindow& window, const sf::Vector2f& 
     window.draw(tunnelStatus);
 
     MenuButton backBtn {"Back", {cx - BTN_WIDTH / 2.0f, statusY + 80.0f}, {BTN_WIDTH, BTN_HEIGHT}, 33};
+    drawMinecraftButton(window, backBtn, mousePos);
+}
+
+void MenuManager::drawMultiplayerMenu(sf::RenderWindow& window, const sf::Vector2f& mousePos) {
+    float cx = m_windowWidth / 2.0f;
+
+    sf::RectangleShape overlay(sf::Vector2f(static_cast<float>(m_windowWidth), static_cast<float>(m_windowHeight)));
+    overlay.setFillColor(sf::Color(0, 0, 0, 160));
+    window.draw(overlay);
+
+    sf::Text title(m_font, "Multiplayer", 32);
+    title.setFillColor(sf::Color::White);
+    sf::FloatRect lb = title.getLocalBounds();
+    title.setOrigin({lb.position.x + lb.size.x / 2.0f, lb.position.y + lb.size.y / 2.0f});
+    title.setPosition({cx, m_windowHeight / 2.0f - 120.0f});
+    window.draw(title);
+
+    sf::Text label(m_font, "Server Address:", 18);
+    label.setFillColor(sf::Color(200, 200, 200));
+    label.setPosition({cx - BTN_WIDTH / 2.0f, m_windowHeight / 2.0f - 60.0f});
+    window.draw(label);
+
+    m_serverAddressInput->update(1.0f / 60.0f, mousePos, m_mouseClicked);
+    m_serverAddressInput->draw(window);
+
+    MenuButton connectBtn {"Connect", {cx - BTN_WIDTH / 2.0f, m_windowHeight / 2.0f + 50.0f}, {BTN_WIDTH, BTN_HEIGHT}, 34};
+    MenuButton backBtn    {"Back",    {cx - BTN_WIDTH / 2.0f, m_windowHeight / 2.0f + 50.0f + BTN_HEIGHT + BTN_SPACING}, {BTN_WIDTH, BTN_HEIGHT}, 35};
+
+    drawMinecraftButton(window, connectBtn, mousePos);
     drawMinecraftButton(window, backBtn, mousePos);
 }
 
