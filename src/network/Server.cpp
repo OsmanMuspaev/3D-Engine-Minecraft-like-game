@@ -169,11 +169,16 @@ void Server::acceptClients() {
 
     std::cout << "[Server] Client " << client->id << " connected.\n";
 
-    sf::Packet pkt;
-    pkt << PacketType::JoinAccepted << client->id;
-    (void)client->socket.send(pkt);
+    // Send JoinAccepted + WorldData using blocking send to guarantee delivery.
+    client->socket.setBlocking(true);
+
+    sf::Packet joinPkt;
+    joinPkt << PacketType::JoinAccepted << client->id;
+    (void)client->socket.send(joinPkt);
 
     sendWorldToClient(*client);
+
+    client->socket.setBlocking(false);
 
     m_clients.push_back(std::move(client));
 }
@@ -312,6 +317,9 @@ void Server::sendWorldToClient(Client& client) {
         }
     }
 
+    // Temporarily switch to blocking send for the large world data packet.
+    client.socket.setBlocking(true);
     (void)client.socket.send(pkt);
+    client.socket.setBlocking(false);
     std::cout << "[Server] Sent world data to client " << client.id << ".\n";
 }

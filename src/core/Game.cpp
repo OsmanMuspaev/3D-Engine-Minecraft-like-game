@@ -413,8 +413,11 @@ void Game::update(float dt) {
         }
         m_client.update(dt);
         auto blockUpdates = m_client.getBlockUpdates();
-        for (auto& bu : blockUpdates) {
-            m_world.setBlock(bu.x, bu.y, bu.z, static_cast<BlockType>(bu.type));
+        if (!blockUpdates.empty()) {
+            for (auto& bu : blockUpdates) {
+                m_world.setBlock(bu.x, bu.y, bu.z, static_cast<BlockType>(bu.type));
+            }
+            std::cout << "[Client] Applied " << blockUpdates.size() << " blocks to world\n";
         }
     }
 
