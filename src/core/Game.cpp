@@ -418,7 +418,14 @@ void Game::update(float dt) {
         }
     }
 
+    // Server host: broadcast own position to connected clients.
     if (m_isServer) {
+        m_networkSendTimer += dt;
+        if (m_networkSendTimer >= 0.05f) {
+            Vector3 pos = m_camera.getPosition();
+            m_server.setHostPosition(pos.x, pos.y, pos.z, m_camera.getYaw(), m_camera.getPitch());
+            m_networkSendTimer = 0.0f;
+        }
         m_server.update(dt);
     }
 }
@@ -537,6 +544,15 @@ void Game::render(float dt) {
     // Draw other players (network).
     if (m_isClient) {
         auto others = m_client.getOtherPlayers();
+        for (auto& other : others) {
+            Vector3 otherPos(other.x, other.y - PLAYER_HEIGHT, other.z);
+            m_playerView.renderPlayer(*m_renderer, otherPos, Vector3(0, 0, 1),
+                other.yaw, other.pitch, view, proj, camPos, false, 0.0f,
+                CameraViewType::ThirdPersonBack);
+        }
+    }
+    if (m_isServer) {
+        auto others = m_server.getClientStates();
         for (auto& other : others) {
             Vector3 otherPos(other.x, other.y - PLAYER_HEIGHT, other.z);
             m_playerView.renderPlayer(*m_renderer, otherPos, Vector3(0, 0, 1),
@@ -735,6 +751,9 @@ void Game::startServer(bool useTunnel) {
 
         if (useTunnel) {
             launchLocalTunnel(port);
+            std::string ip = getLocalIP();
+            m_menu.showServerInfo("Local IP: " + ip + ":" + std::to_string(port) +
+                "\n\nTunnel launched. Use ngrok for\nTCP tunnels (localtunnel = HTTP only).");
         } else {
             std::string ip = getLocalIP();
             m_menu.showServerInfo("Local IP: " + ip + ":" + std::to_string(port) + "\n\nShare this address with other\nplayers on your local network.");

@@ -24,8 +24,10 @@ public:
     unsigned short getPort() const { return m_boundPort; }
 
     void setWorld(World* world, int worldSize);
+    void setHostPosition(float x, float y, float z, float yaw, float pitch);
     void update(float dt);
     int getClientCount() const { return static_cast<int>(m_clients.size()); }
+    std::vector<PlayerState> getClientStates() const;
 
 private:
     struct Client {
@@ -50,4 +52,6 @@ private:
 
     World* m_world = nullptr;
     int m_worldSize = 20;
+    PlayerState m_hostState;
+    bool m_hasHostState = false;
 };

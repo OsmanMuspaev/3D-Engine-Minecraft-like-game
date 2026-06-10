@@ -159,7 +159,13 @@ void Client::receiveLoop() {
                     int worldSize;
                     packet >> worldSize;
                     std::lock_guard<std::mutex> lock(m_mutex);
+                    while (!packet.endOfPacket()) {
+                        BlockUpdateEvent ev;
+                        packet >> ev.x >> ev.y >> ev.z >> ev.type;
+                        m_blockUpdates.push_back(ev);
+                    }
                     m_hasWorld = true;
+                    std::cout << "[Client] Received world data (" << m_blockUpdates.size() << " blocks)\n";
                     break;
                 }
                 case PacketType::BlockUpdate: {

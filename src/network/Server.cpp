@@ -103,6 +103,26 @@ void Server::setWorld(World* world, int worldSize) {
     m_worldSize = worldSize;
 }
 
+void Server::setHostPosition(float x, float y, float z, float yaw, float pitch) {
+    m_hostState.id = 0;
+    m_hostState.x = x;
+    m_hostState.y = y;
+    m_hostState.z = z;
+    m_hostState.yaw = yaw;
+    m_hostState.pitch = pitch;
+    m_hostState.name = "Host";
+    m_hasHostState = true;
+}
+
+std::vector<PlayerState> Server::getClientStates() const {
+    std::vector<PlayerState> states;
+    for (auto& client : m_clients) {
+        if (client->connected)
+            states.push_back(client->state);
+    }
+    return states;
+}
+
 void Server::update(float /*dt*/) {
     if (!m_running)
         return;
@@ -230,6 +250,13 @@ void Server::broadcastPositions() {
     for (auto& client : m_clients) {
         if (!client->connected)
             continue;
+        // Send host position to this client.
+        if (m_hasHostState) {
+            sf::Packet pkt;
+            pkt << PacketType::PlayerPosition << m_hostState;
+            (void)client->socket.send(pkt);
+        }
+        // Send other clients' positions to this client.
         for (auto& other : m_clients) {
             if (other->id == client->id || !other->connected)
                 continue;
