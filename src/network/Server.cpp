@@ -299,15 +299,18 @@ void Server::sendWorldToClient(Client& client) {
     if (!m_world)
         return;
 
-    int half = m_worldSize / 2;
+    // m_worldSize is the chunk radius used by World::generate, so the world
+    // actually spans from -m_worldSize*Chunk::SIZE to +m_worldSize*Chunk::SIZE-1
+    // on both X and Z. Use the full range so the client receives every block.
+    int blockRadius = m_worldSize * Chunk::SIZE;
 
     sf::Packet pkt;
     pkt << PacketType::WorldData << m_worldSize;
 
     constexpr int WORLD_HEIGHT = 256;
 
-    for (int x = -half; x < half; ++x) {
-        for (int z = -half; z < half; ++z) {
+    for (int x = -blockRadius; x < blockRadius; ++x) {
+        for (int z = -blockRadius; z < blockRadius; ++z) {
             for (int y = 0; y < WORLD_HEIGHT; ++y) {
                 Block block = m_world->getBlock(x, y, z);
                 if (block.type == BlockType::AIR)
