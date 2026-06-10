@@ -1,632 +1,521 @@
 #include "MenuManager.h"
 #include "MenuWidget.h"
+#include "../core/AssetPath.h"
 #include <filesystem>
 #include <algorithm>
+#include <iostream>
 
 namespace fs = std::filesystem;
 
-static const sf::Color BG_COLOR(20, 20, 20);
-static const sf::Color BTN_COLOR(60, 60, 60);
-static const sf::Color BTN_HOVER(80, 80, 80);
-static const sf::Color TEXT_COLOR(200, 200, 200);
-static const sf::Color TITLE_COLOR(255, 255, 255);
 static const float BTN_WIDTH = 300.0f;
-static const float BTN_HEIGHT = 50.0f;
-static const float BTN_SPACING = 15.0f;
-static const float DIALOG_WIDTH = 420.0f;
-static const float DIALOG_HEIGHT = 300.0f;
+static const float BTN_HEIGHT = 44.0f;
+static const float BTN_SPACING = 12.0f;
 
-MenuManager::MenuManager()
-    : m_nameInput("World Name", m_font, 0, 0, 1),
-      m_serverInput("Server Address", m_font, 0, 0, 1)
-{
-}
+// Исправлено: Спрайты явно инициализируются дефолтным конструктором в списке инициализации
+MenuManager::MenuManager() {}
 
-void MenuManager::loadFont() {
-    m_fontLoaded = m_font.openFromFile("assets/minecraft-rus-regular1.ttf");
-    if (!m_fontLoaded)
-        m_fontLoaded = m_font.openFromFile("/System/Library/Fonts/Helvetica.ttc");
-}
-
+// Исправлено: Добавлен аргумент Game* game
 void MenuManager::init(Game* game, unsigned int windowWidth, unsigned int windowHeight) {
     m_game = game;
     m_windowWidth = windowWidth;
     m_windowHeight = windowHeight;
 
-    m_background.setSize({(float)windowWidth, (float)windowHeight});
-    m_background.setFillColor(BG_COLOR);
-
-    loadFont();
+    loadResources();
+    createButtons();
     refreshWorldList();
+
+    float cx = m_windowWidth / 2.0f;
+    m_worldNameInput.emplace("World Name", m_font, cx - 150.0f, m_windowHeight / 2.0f - 30.0f, 300.0f);
 }
 
-void MenuManager::setState(MenuState state) {
-    m_state = state;
-}
-
-// ---------------------------------------------------------------------------
-// Event handling
-// ---------------------------------------------------------------------------
-
-void MenuManager::handleEvent(const sf::Event& event, sf::RenderWindow& window) {
-    if (!m_fontLoaded) return;
-
-    // Track mouse click (single-frame press)
-    if (const auto* btn = event.getIf<sf::Event::MouseButtonPressed>()) {
-        if (btn->button == sf::Mouse::Button::Left) {
-            m_mouseClicked = true;
-        }
+void MenuManager::loadResources() {
+    m_fontLoaded = m_font.openFromFile(AssetPath::resolve("minecraft-rus-regular1.ttf"));
+    if (!m_fontLoaded) {
+        m_fontLoaded = m_font.openFromFile("/System/Library/Fonts/Helvetica.ttc");
     }
 
-    // Global: escape toggles pause / resumes
-    if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
-        if (key->code == sf::Keyboard::Key::Escape) {
-            if (m_state == MenuState::Playing) {
-                m_state = MenuState::PauseMenu;
-            } else if (m_state == MenuState::PauseMenu) {
-                m_wantsResume = true;
-                m_state = MenuState::Playing;
-            } else if (m_state == MenuState::ServerInfoScreen) {
-                m_state = MenuState::PauseMenu;
-            }
-        }
-    }
+    if (m_dirtTexture.loadFromFile(AssetPath::resolve("minecraft/textures/gui/options_background.png")) &&
+        m_guiTexture.loadFromFile(AssetPath::resolve("minecraft/textures/gui/widgets.png"))) {
 
-    // Forward text events to focused TextInput widgets
-    if (event.is<sf::Event::TextEntered>()) {
-        if (m_state == MenuState::SingleplayerMenu && m_showCreateDialog) {
-            m_nameInput.handleEvent(event);
-        } else if (m_state == MenuState::MultiplayerMenu) {
-            m_serverInput.handleEvent(event);
-        }
+        m_texturesLoaded = true;
+
+        m_dirtTexture.setSmooth(false);
+        m_guiTexture.setSmooth(false);
+
+        m_dirtTexture.setRepeated(true);
+        m_bgSprite.emplace(m_dirtTexture);
+
+        sf::Vector2i bgSize(static_cast<int>(m_windowWidth / 2), static_cast<int>(m_windowHeight / 2));
+        m_bgSprite->setTextureRect(sf::IntRect({0, 0}, bgSize));
+        m_bgSprite->setScale({2.0f, 2.0f});
+
+        m_bgSprite->setColor(sf::Color(90, 90, 90));
+
+        m_btnSprite.emplace(m_guiTexture);
+    } else {
+        std::cerr << "Ошибка: Не удалось загрузить текстуры меню!" << std::endl;
     }
 }
 
-// ---------------------------------------------------------------------------
-// Update
-// ---------------------------------------------------------------------------
+void MenuManager::createButtons() {
+    float cx = m_windowWidth / 2.0f;
 
-void MenuManager::update(float dt, sf::RenderWindow& window) {
-    // Update TextInput cursor blinking
-    sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition(window);
-    if (m_state == MenuState::SingleplayerMenu && m_showCreateDialog) {
-        m_nameInput.update(dt, mousePos, m_mouseClicked);
-    }
-    if (m_state == MenuState::MultiplayerMenu) {
-        m_serverInput.update(dt, mousePos, m_mouseClicked);
-    }
+    m_mainMenuButtons.clear();
+    m_singleplayerMenuButtons.clear();
+
+    float startY = m_windowHeight / 2.0f - 40.0f;
+    m_mainMenuButtons.push_back({"Singleplayer", {cx - BTN_WIDTH / 2.0f, startY}, {BTN_WIDTH, BTN_HEIGHT}, 1});
+    m_mainMenuButtons.push_back({"Multiplayer", {cx - BTN_WIDTH / 2.0f, startY + BTN_HEIGHT + BTN_SPACING}, {BTN_WIDTH, BTN_HEIGHT}, 2});
+    m_mainMenuButtons.push_back({"Settings", {cx - BTN_WIDTH / 2.0f, startY + (BTN_HEIGHT + BTN_SPACING) * 2}, {BTN_WIDTH, BTN_HEIGHT}, 3});
+    m_mainMenuButtons.push_back({"Quit", {cx - BTN_WIDTH / 2.0f, startY + (BTN_HEIGHT + BTN_SPACING) * 3}, {BTN_WIDTH, BTN_HEIGHT}, 4});
 }
-
-// ---------------------------------------------------------------------------
-// Draw
-// ---------------------------------------------------------------------------
-
-void MenuManager::draw(sf::RenderWindow& window) {
-    if (!m_fontLoaded) return;
-
-    window.draw(m_background);
-
-    switch (m_state) {
-        case MenuState::MainMenu:        drawMainMenu(window); break;
-        case MenuState::SingleplayerMenu: drawSingleplayerMenu(window); break;
-        case MenuState::MultiplayerMenu:  drawMultiplayerMenu(window); break;
-        case MenuState::SettingsMenu:     drawSettingsMenu(window); break;
-        case MenuState::PauseMenu:        drawPauseMenu(window); break;
-        case MenuState::ServerInfoScreen: drawServerInfoScreen(window); break;
-        case MenuState::Playing: break;
-    }
-
-    if (m_showCreateDialog) {
-        drawCreateWorldDialog(window);
-    }
-
-    // Reset single-frame click flag
-    m_mouseClicked = false;
-}
-
-// ---------------------------------------------------------------------------
-// Main Menu
-// ---------------------------------------------------------------------------
-
-void MenuManager::drawMainMenu(sf::RenderWindow& window) {
-    float cx = (float)m_windowWidth / 2.0f;
-    float cy = (float)m_windowHeight / 2.0f;
-
-    // Title
-    Label title("Quadro", m_font, 0, cy - 180.0f, 64);
-    auto lb = title.text.getLocalBounds();
-    title.text.setOrigin({lb.position.x + lb.size.x / 2.0f, 0.0f});
-    title.text.setPosition({cx, cy - 180.0f});
-    title.draw(window);
-
-    // Buttons
-    float startY = cy - 60.0f;
-    Button singleplayer("Singleplayer", m_font, cx - BTN_WIDTH / 2.0f, startY, BTN_WIDTH, BTN_HEIGHT);
-    Button multiplayer("Multiplayer", m_font, cx - BTN_WIDTH / 2.0f, startY + BTN_HEIGHT + BTN_SPACING, BTN_WIDTH, BTN_HEIGHT);
-    Button settings("Settings", m_font, cx - BTN_WIDTH / 2.0f, startY + (BTN_HEIGHT + BTN_SPACING) * 2, BTN_WIDTH, BTN_HEIGHT);
-
-    sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition(window);
-    singleplayer.update(mousePos);
-    multiplayer.update(mousePos);
-    settings.update(mousePos);
-
-    singleplayer.draw(window);
-    multiplayer.draw(window);
-    settings.draw(window);
-
-    if (singleplayer.contains(mousePos) && m_mouseClicked) {
-        m_state = MenuState::SingleplayerMenu;
-        refreshWorldList();
-    }
-    if (multiplayer.contains(mousePos) && m_mouseClicked) {
-        m_state = MenuState::MultiplayerMenu;
-    }
-    if (settings.contains(mousePos) && m_mouseClicked) {
-        m_state = MenuState::SettingsMenu;
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Singleplayer Menu
-// ---------------------------------------------------------------------------
-
-void MenuManager::drawSingleplayerMenu(sf::RenderWindow& window) {
-    float cx = (float)m_windowWidth / 2.0f;
-    float startY = 80.0f;
-
-    Label title("Singleplayer", m_font, 0, startY, 32);
-    auto lb = title.text.getLocalBounds();
-    title.text.setOrigin({lb.position.x + lb.size.x / 2.0f, 0.0f});
-    title.text.setPosition({cx, startY});
-    title.draw(window);
-
-    // World list area
-    float listX = cx - 250.0f;
-    float listY = startY + 60.0f;
-    float listW = 500.0f;
-    float listH = 300.0f;
-
-    sf::RectangleShape listBg({listW, listH});
-    listBg.setPosition({listX, listY});
-    listBg.setFillColor(sf::Color(30, 30, 30));
-    listBg.setOutlineColor(sf::Color(80, 80, 80));
-    listBg.setOutlineThickness(2.0f);
-    window.draw(listBg);
-
-    // Draw world entries
-    float entryY = listY + 10.0f;
-    float entryH = 36.0f;
-    sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition(window);
-
-    for (size_t i = 0; i < m_worldList.size() && entryY + entryH < listY + listH - 5.0f; ++i) {
-        sf::RectangleShape entryBg({listW - 20.0f, entryH});
-        entryBg.setPosition({listX + 10.0f, entryY});
-        bool isSelected = (m_worldList[i] == m_selectedWorld);
-        entryBg.setFillColor(isSelected ? sf::Color(70, 70, 70) : sf::Color(40, 40, 40));
-        entryBg.setOutlineColor(isSelected ? sf::Color(120, 120, 120) : sf::Color(60, 60, 60));
-        entryBg.setOutlineThickness(1.0f);
-        window.draw(entryBg);
-
-        Label entry(m_worldList[i], m_font, listX + 20.0f, entryY + 8.0f, 16);
-        entry.draw(window);
-
-        if (entryBg.getGlobalBounds().contains(mousePos) && m_mouseClicked) {
-            m_selectedWorld = m_worldList[i];
-        }
-
-        entryY += entryH + 4.0f;
-    }
-
-    if (m_worldList.empty()) {
-        Label empty("No saved worlds", m_font, listX + 140.0f, listY + 130.0f, 16);
-        empty.draw(window);
-    }
-
-    // Buttons at bottom
-    float btnY = listY + listH + 20.0f;
-    Button createBtn("Create New World", m_font, cx - 260.0f, btnY, 170.0f, BTN_HEIGHT);
-    Button playBtn("Play", m_font, cx - 75.0f, btnY, 150.0f, BTN_HEIGHT);
-    Button backBtn("Back", m_font, cx + 90.0f, btnY, 170.0f, BTN_HEIGHT);
-
-    createBtn.update(mousePos);
-    playBtn.update(mousePos);
-    backBtn.update(mousePos);
-
-    createBtn.draw(window);
-    playBtn.draw(window);
-    backBtn.draw(window);
-
-    if (createBtn.contains(mousePos) && m_mouseClicked) {
-        m_showCreateDialog = true;
-        m_newWorldName.clear();
-        m_nameInput.text.clear();
-        m_nameInput.value.setString("");
-        m_nameInput.setFocus(false);
-    }
-    if (playBtn.contains(mousePos) && m_mouseClicked) {
-        if (!m_selectedWorld.empty()) {
-            m_wantsLoadWorld = true;
-            m_state = MenuState::Playing;
-        }
-    }
-    if (backBtn.contains(mousePos) && m_mouseClicked) {
-        m_state = MenuState::MainMenu;
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Create World Dialog
-// ---------------------------------------------------------------------------
-
-void MenuManager::drawCreateWorldDialog(sf::RenderWindow& window) {
-    float cx = (float)m_windowWidth / 2.0f;
-    float cy = (float)m_windowHeight / 2.0f;
-    float dx = cx - DIALOG_WIDTH / 2.0f;
-    float dy = cy - DIALOG_HEIGHT / 2.0f;
-
-    // Dim background
-    sf::RectangleShape dim({(float)m_windowWidth, (float)m_windowHeight});
-    dim.setFillColor(sf::Color(0, 0, 0, 150));
-    window.draw(dim);
-
-    // Dialog panel
-    sf::RectangleShape panel({DIALOG_WIDTH, DIALOG_HEIGHT});
-    panel.setPosition({dx, dy});
-    panel.setFillColor(sf::Color(35, 35, 35));
-    panel.setOutlineColor(sf::Color(100, 100, 100));
-    panel.setOutlineThickness(2.0f);
-    window.draw(panel);
-
-    Label dialogTitle("Create New World", m_font, dx + 100.0f, dy + 15.0f, 24);
-    dialogTitle.draw(window);
-
-    // World name input — update position each frame but keep focus/text state
-    float nameX = dx + 30.0f;
-    float nameY = dy + 60.0f;
-    m_nameInput.box.setPosition({nameX, nameY + 25.0f});
-    m_nameInput.box.setSize({DIALOG_WIDTH - 60.0f, 35.0f});
-    m_nameInput.label.setPosition({nameX, nameY});
-    m_nameInput.value.setPosition({nameX + 8.0f, nameY + 32.0f});
-    sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition(window);
-    m_nameInput.update(0.016f, mousePos, m_mouseClicked);
-    m_nameInput.draw(window);
-
-    // Sync from TextInput (never overwrite INTO it)
-    m_newWorldName = m_nameInput.text;
-
-    // World size buttons
-    Label sizeLabel("World Size:", m_font, dx + 30.0f, dy + 130.0f, 16);
-    sizeLabel.draw(window);
-
-    float sizeBtnY = dy + 155.0f;
-    float sizeBtnW = 100.0f;
-
-    struct SizeOption { const char* label; int value; };
-    SizeOption sizes[] = { {"Small (10)", 10}, {"Medium (20)", 20}, {"Large (30)", 30} };
-
-    for (int i = 0; i < 3; ++i) {
-        float bx = dx + 30.0f + i * (sizeBtnW + 10.0f);
-        Button sizeBtn(sizes[i].label, m_font, bx, sizeBtnY, sizeBtnW, 35.0f);
-        if (m_worldSize == sizes[i].value) {
-            sizeBtn.shape.setFillColor(sf::Color(100, 100, 100));
-        }
-        sizeBtn.update(mousePos);
-        sizeBtn.draw(window);
-        if (sizeBtn.contains(mousePos) && m_mouseClicked) {
-            m_worldSize = sizes[i].value;
-        }
-    }
-
-    // Create / Cancel buttons
-    float dlgBtnY = dy + DIALOG_HEIGHT - 60.0f;
-    Button createBtn("Create", m_font, dx + 50.0f, dlgBtnY, 140.0f, 40.0f);
-    Button cancelBtn("Cancel", m_font, dx + DIALOG_WIDTH - 190.0f, dlgBtnY, 140.0f, 40.0f);
-
-    createBtn.update(mousePos);
-    cancelBtn.update(mousePos);
-
-    createBtn.draw(window);
-    cancelBtn.draw(window);
-
-    if (createBtn.contains(mousePos) && m_mouseClicked) {
-        if (!m_newWorldName.empty()) {
-            m_wantsCreateWorld = true;
-            m_showCreateDialog = false;
-            m_state = MenuState::Playing;
-        }
-    }
-    if (cancelBtn.contains(mousePos) && m_mouseClicked) {
-        m_showCreateDialog = false;
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Multiplayer Menu
-// ---------------------------------------------------------------------------
-
-void MenuManager::drawMultiplayerMenu(sf::RenderWindow& window) {
-    float cx = (float)m_windowWidth / 2.0f;
-    float startY = 80.0f;
-
-    Label title("Multiplayer", m_font, 0, startY, 32);
-    auto lb = title.text.getLocalBounds();
-    title.text.setOrigin({lb.position.x + lb.size.x / 2.0f, 0.0f});
-    title.text.setPosition({cx, startY});
-    title.draw(window);
-
-    // Set default "localhost" once when entering this menu
-    if (m_serverInput.text.empty() && m_serverAddress.empty()) {
-        m_serverInput.text = "localhost";
-        m_serverInput.value.setString("localhost");
-    }
-
-    // Server address input — update position each frame but keep focus/text state
-    float srvX = cx - 200.0f;
-    float srvY = startY + 80.0f;
-    m_serverInput.box.setPosition({srvX, srvY + 25.0f});
-    m_serverInput.box.setSize({400.0f, 35.0f});
-    m_serverInput.label.setPosition({srvX, srvY});
-    m_serverInput.value.setPosition({srvX + 8.0f, srvY + 32.0f});
-    sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition(window);
-    m_serverInput.update(0.016f, mousePos, m_mouseClicked);
-    m_serverInput.draw(window);
-
-    // Sync from TextInput
-    m_serverAddress = m_serverInput.text;
-
-    // Buttons
-    float btnY = startY + 180.0f;
-
-    Button connectBtn("Connect", m_font, cx - BTN_WIDTH / 2.0f, btnY, BTN_WIDTH, BTN_HEIGHT);
-    Button backBtn("Back", m_font, cx - BTN_WIDTH / 2.0f, btnY + BTN_HEIGHT + BTN_SPACING, BTN_WIDTH, BTN_HEIGHT);
-
-    connectBtn.update(mousePos);
-    backBtn.update(mousePos);
-
-    connectBtn.draw(window);
-    backBtn.draw(window);
-
-    if (connectBtn.contains(mousePos) && m_mouseClicked) {
-        if (!m_serverAddress.empty()) {
-            m_wantsConnect = true;
-            m_state = MenuState::Playing;
-        }
-    }
-    if (backBtn.contains(mousePos) && m_mouseClicked) {
-        m_state = MenuState::MainMenu;
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Settings Menu
-// ---------------------------------------------------------------------------
-
-void MenuManager::drawSettingsMenu(sf::RenderWindow& window) {
-    float cx = (float)m_windowWidth / 2.0f;
-    float startY = 80.0f;
-
-    Label title("Settings", m_font, 0, startY, 32);
-    auto lb = title.text.getLocalBounds();
-    title.text.setOrigin({lb.position.x + lb.size.x / 2.0f, 0.0f});
-    title.text.setPosition({cx, startY});
-    title.draw(window);
-
-    sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition(window);
-
-    // Resolution section
-    Label resLabel("Resolution:", m_font, cx - 200.0f, startY + 70.0f, 18);
-    resLabel.draw(window);
-
-    struct Resolution { int w; int h; const char* label; };
-    Resolution resolutions[] = {
-        {1280, 720, "1280x720"},
-        {1680, 1050, "1680x1050"},
-        {1920, 1080, "1920x1080"},
-        {2560, 1440, "2560x1440"}
-    };
-
-    float resBtnY = startY + 100.0f;
-    float resBtnW = 120.0f;
-    for (int i = 0; i < 4; ++i) {
-        float bx = cx - 260.0f + i * (resBtnW + 15.0f);
-        Button resBtn(resolutions[i].label, m_font, bx, resBtnY, resBtnW, 35.0f);
-        if (m_windowWidth == resolutions[i].w && m_windowHeight == resolutions[i].h) {
-            resBtn.shape.setFillColor(sf::Color(100, 100, 100));
-        }
-        resBtn.update(mousePos);
-        resBtn.draw(window);
-        if (resBtn.contains(mousePos) && m_mouseClicked) {
-            m_windowWidth = resolutions[i].w;
-            m_windowHeight = resolutions[i].h;
-        }
-    }
-
-    // Render scale section
-    Label scaleLabel("Render Scale:", m_font, cx - 200.0f, resBtnY + 70.0f, 18);
-    scaleLabel.draw(window);
-
-    float scales[] = { 0.25f, 0.5f, 0.75f, 1.0f };
-    const char* scaleLabels[] = { "0.25", "0.50", "0.75", "1.00" };
-    float scaleBtnY = resBtnY + 100.0f;
-    float scaleBtnW = 80.0f;
-
-    for (int i = 0; i < 4; ++i) {
-        float bx = cx - 185.0f + i * (scaleBtnW + 15.0f);
-        Button scaleBtn(scaleLabels[i], m_font, bx, scaleBtnY, scaleBtnW, 35.0f);
-        if (m_renderScale == scales[i]) {
-            scaleBtn.shape.setFillColor(sf::Color(100, 100, 100));
-        }
-        scaleBtn.update(mousePos);
-        scaleBtn.draw(window);
-        if (scaleBtn.contains(mousePos) && m_mouseClicked) {
-            m_renderScale = scales[i];
-        }
-    }
-
-    // Back button
-    Button backBtn("Back", m_font, cx - BTN_WIDTH / 2.0f, scaleBtnY + 90.0f, BTN_WIDTH, BTN_HEIGHT);
-    backBtn.update(mousePos);
-    backBtn.draw(window);
-    if (backBtn.contains(mousePos) && m_mouseClicked) {
-        m_state = MenuState::MainMenu;
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Pause Menu
-// ---------------------------------------------------------------------------
-
-void MenuManager::drawPauseMenu(sf::RenderWindow& window) {
-    float cx = (float)m_windowWidth / 2.0f;
-    float cy = (float)m_windowHeight / 2.0f;
-
-    // Semi-transparent overlay
-    sf::RectangleShape overlay({(float)m_windowWidth, (float)m_windowHeight});
-    overlay.setFillColor(sf::Color(0, 0, 0, 120));
-    window.draw(overlay);
-
-    Label title("Paused", m_font, 0, cy - 160.0f, 36);
-    auto lb = title.text.getLocalBounds();
-    title.text.setOrigin({lb.position.x + lb.size.x / 2.0f, 0.0f});
-    title.text.setPosition({cx, cy - 160.0f});
-    title.draw(window);
-
-    sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition(window);
-    float startY = cy - 100.0f;
-
-    Button resumeBtn("Resume", m_font, cx - BTN_WIDTH / 2.0f, startY, BTN_WIDTH, BTN_HEIGHT);
-    Button lanBtn("Open to LAN", m_font, cx - BTN_WIDTH / 2.0f, startY + (BTN_HEIGHT + BTN_SPACING), BTN_WIDTH, BTN_HEIGHT);
-    Button tunnelBtn("Open with LocalTunnel", m_font, cx - BTN_WIDTH / 2.0f, startY + (BTN_HEIGHT + BTN_SPACING) * 2, BTN_WIDTH, BTN_HEIGHT);
-    Button settingsBtn("Settings", m_font, cx - BTN_WIDTH / 2.0f, startY + (BTN_HEIGHT + BTN_SPACING) * 3, BTN_WIDTH, BTN_HEIGHT);
-    Button quitBtn("Quit to Menu", m_font, cx - BTN_WIDTH / 2.0f, startY + (BTN_HEIGHT + BTN_SPACING) * 4, BTN_WIDTH, BTN_HEIGHT);
-
-    resumeBtn.update(mousePos);
-    lanBtn.update(mousePos);
-    tunnelBtn.update(mousePos);
-    settingsBtn.update(mousePos);
-    quitBtn.update(mousePos);
-
-    resumeBtn.draw(window);
-    lanBtn.draw(window);
-    tunnelBtn.draw(window);
-    settingsBtn.draw(window);
-    quitBtn.draw(window);
-
-    if (resumeBtn.contains(mousePos) && m_mouseClicked) {
-        m_wantsResume = true;
-        m_state = MenuState::Playing;
-    }
-    if (lanBtn.contains(mousePos) && m_mouseClicked) {
-        m_wantsOpenToLAN = true;
-    }
-    if (tunnelBtn.contains(mousePos) && m_mouseClicked) {
-        m_wantsOpenToTunnel = true;
-    }
-    if (settingsBtn.contains(mousePos) && m_mouseClicked) {
-        m_state = MenuState::SettingsMenu;
-    }
-    if (quitBtn.contains(mousePos) && m_mouseClicked) {
-        m_wantsQuitToMenu = true;
-        m_state = MenuState::MainMenu;
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Refresh saved world list from saves/ directory
-// ---------------------------------------------------------------------------
 
 void MenuManager::refreshWorldList() {
     m_worldList.clear();
 
-    fs::path savesDir("saves");
-    if (!fs::exists(savesDir) || !fs::is_directory(savesDir)) {
-        fs::create_directories(savesDir);
-        return;
+    if (!fs::exists("saves")) {
+        fs::create_directory("saves");
     }
 
-    for (auto& entry : fs::directory_iterator(savesDir)) {
+    for (const auto& entry : fs::directory_iterator("saves")) {
         if (entry.is_directory()) {
             m_worldList.push_back(entry.path().filename().string());
         }
     }
-
-    std::sort(m_worldList.begin(), m_worldList.end());
 }
 
-// ---------------------------------------------------------------------------
-// Server Info Screen
-// ---------------------------------------------------------------------------
+void MenuManager::setState(MenuState newState) {
+    m_state = newState;
+    if (m_state == MenuState::SingleplayerMenu) {
+        refreshWorldList();
+    }
+}
+
+void MenuManager::handleEvent(const sf::Event& event, const sf::RenderWindow& window) {
+    if (!m_fontLoaded) return;
+
+    if (m_showCreateDialog && m_worldNameInput) {
+        m_worldNameInput->handleEvent(event);
+        if (const auto* btnEvt = event.getIf<sf::Event::MouseButtonPressed>()) {
+            if (btnEvt->button == sf::Mouse::Button::Left) {
+                m_mouseClicked = true;
+                sf::Vector2f mp = static_cast<sf::Vector2f>(sf::Mouse::getPosition(window));
+                float cx = m_windowWidth / 2.0f;
+                float cy = m_windowHeight / 2.0f;
+                float btnY = cy + 100.0f - 55.0f;
+                float btnW = 120.0f;
+                float gap = 20.0f;
+                sf::FloatRect createBounds({cx - btnW - gap / 2.0f, btnY}, {btnW, BTN_HEIGHT});
+                sf::FloatRect cancelBounds({cx + gap / 2.0f, btnY}, {btnW, BTN_HEIGHT});
+                if (createBounds.contains(mp) && !m_worldNameInput->text.empty()) {
+                    m_newWorldName = m_worldNameInput->text;
+                    m_showCreateDialog = false;
+                    m_wantsCreateWorld = true;
+                    setState(MenuState::Playing);
+                } else if (cancelBounds.contains(mp)) {
+                    m_showCreateDialog = false;
+                }
+            }
+        }
+        if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+            if (key->code == sf::Keyboard::Key::Enter && !m_worldNameInput->text.empty()) {
+                m_newWorldName = m_worldNameInput->text;
+                m_showCreateDialog = false;
+                m_wantsCreateWorld = true;
+                setState(MenuState::Playing);
+            }
+            if (key->code == sf::Keyboard::Key::Escape) {
+                m_showCreateDialog = false;
+            }
+        }
+        return;
+    }
+
+    if (const auto* btn = event.getIf<sf::Event::MouseButtonPressed>()) {
+        if (btn->button == sf::Mouse::Button::Left) {
+            m_mouseClicked = true;
+
+            if (m_state == MenuState::SingleplayerMenu) {
+                sf::Vector2f mousePos = static_cast<sf::Vector2f>(sf::Mouse::getPosition(window));
+                float cx = m_windowWidth / 2.0f;
+                float listX = cx - 250.0f;
+                float listY = 80.0f;
+                float listW = 500.0f;
+                float listH = m_windowHeight - 200.0f;
+
+                float entryY = listY + 8.0f;
+                float entryH = 40.0f;
+
+                for (size_t i = 0; i < m_worldList.size() && (entryY + entryH < listY + listH); ++i) {
+                    sf::FloatRect entryBounds({listX + 6.0f, entryY}, {listW - 12.0f, entryH});
+                    if (entryBounds.contains(mousePos)) {
+                        m_selectedWorld = m_worldList[i];
+                        break;
+                    }
+                    entryY += entryH + 4.0f;
+                }
+            }
+        }
+    }
+
+    if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
+        if (key->code == sf::Keyboard::Key::Escape) {
+            if (m_state == MenuState::SingleplayerMenu ||
+                m_state == MenuState::MultiplayerMenu ||
+                m_state == MenuState::SettingsMenu) {
+                
+                setState(MenuState::MainMenu);
+            } else if (m_state == MenuState::NetworkMenu) {
+                setState(MenuState::PauseMenu);
+            }
+        }
+    }
+}
+
+void MenuManager::update(float dt, const sf::RenderWindow& window) {
+    // Логика обновления
+}
+
+void MenuManager::draw(sf::RenderWindow& window) {
+    if (!m_fontLoaded) return;
+
+    sf::Vector2u actualSize = window.getSize();
+    m_windowWidth = actualSize.x;
+    m_windowHeight = actualSize.y;
+
+    sf::Vector2f mousePos = static_cast<sf::Vector2f>(sf::Mouse::getPosition(window));
+
+    if (m_texturesLoaded) {
+        window.draw(*m_bgSprite);
+    } else {
+        window.clear(sf::Color(30, 30, 30));
+    }
+
+    switch (m_state) {
+        case MenuState::MainMenu:
+            drawMainMenu(window, mousePos);
+            break;
+        case MenuState::SingleplayerMenu:
+            drawSingleplayerMenu(window, mousePos);
+            break;
+        case MenuState::PauseMenu:
+            drawPauseMenu(window, mousePos);
+            break;
+        case MenuState::NetworkMenu:
+            drawNetworkMenu(window, mousePos);
+            break;
+        default:
+            break;
+    }
+
+    if (m_showCreateDialog) {
+        drawCreateDialog(window, mousePos);
+    }
+
+    m_mouseClicked = false;
+}
+
+// Исправлено: Сигнатура полностью соответствует const MenuButton& btn в .h файле
+void MenuManager::drawMinecraftButton(sf::RenderWindow& window, const MenuButton& btn, const sf::Vector2f& mousePos) {
+    sf::FloatRect bounds(btn.position, btn.size);
+    bool isHovered = bounds.contains(mousePos);
+
+    if (m_texturesLoaded) {
+        sf::IntRect srcRect = isHovered ? sf::IntRect({0, 86}, {200, 20}) : sf::IntRect({0, 66}, {200, 20});
+
+        m_btnSprite->setTextureRect(srcRect);
+        m_btnSprite->setPosition(btn.position);
+        m_btnSprite->setScale({btn.size.x / 200.0f, btn.size.y / 20.0f});
+
+        window.draw(*m_btnSprite);
+    }
+
+    // Исправлено под SFML 3: Шрифт m_font передан первым аргументом конструктора Text
+    sf::Text text(m_font, btn.text, 18);
+    text.setFillColor(isHovered ? sf::Color(255, 255, 160) : sf::Color(220, 220, 220));
+
+    sf::Text shadow = text;
+    shadow.setFillColor(sf::Color(40, 40, 40));
+
+    sf::FloatRect textRect = text.getLocalBounds();
+    sf::Vector2f origin = {textRect.position.x + textRect.size.x / 2.0f, textRect.position.y + textRect.size.y / 2.0f};
+    sf::Vector2f pos = {btn.position.x + btn.size.x / 2.0f, btn.position.y + btn.size.y / 2.0f};
+
+    text.setOrigin(origin);
+    text.setPosition(pos);
+
+    shadow.setOrigin(origin);
+    // Исправлено под SFML 3: Смена позиции через вектор {x, y}
+    shadow.setPosition({pos.x + 2.0f, pos.y + 2.0f});
+
+    window.draw(shadow);
+    window.draw(text);
+
+    if (isHovered && m_mouseClicked) {
+        switch (btn.actionId) {
+            case 1: setState(MenuState::SingleplayerMenu); break;
+            case 2: setState(MenuState::MultiplayerMenu); break;
+            case 3: setState(MenuState::SettingsMenu); break;
+            case 4: m_wantsQuit = true; break;
+            case 10:
+                if (!m_selectedWorld.empty()) {
+                    m_wantsLoadWorld = true;
+                    setState(MenuState::Playing);
+                }
+                break;
+            case 11: setState(MenuState::MainMenu); break;
+            case 12: {
+                m_worldNameInput->text.clear();
+                m_worldNameInput->value.setString("");
+                m_worldNameInput->setFocus(true);
+                m_showCreateDialog = true;
+                break;
+            }
+            case 13:
+                if (!m_selectedWorld.empty() && fs::exists("saves/" + m_selectedWorld)) {
+                    fs::remove_all("saves/" + m_selectedWorld);
+                    m_selectedWorld.clear();
+                    refreshWorldList();
+                }
+                break;
+            case 20: m_wantsResume = true; setState(MenuState::Playing); break;
+            case 21: m_wantsQuitToMenu = true; setState(MenuState::MainMenu); break;
+            case 30: m_wantsOpenToLAN = true; break;
+            case 31: m_wantsOpenToTunnel = true; break;
+            case 32: setState(MenuState::NetworkMenu); break;
+            case 33: setState(MenuState::PauseMenu); break;
+            case 14:
+                if (m_worldNameInput && !m_worldNameInput->text.empty()) {
+                    m_newWorldName = m_worldNameInput->text;
+                    m_showCreateDialog = false;
+                    m_wantsCreateWorld = true;
+                    setState(MenuState::Playing);
+                }
+                break;
+            case 15:
+                m_showCreateDialog = false;
+                break;
+        }
+    }
+}
 
 void MenuManager::showServerInfo(const std::string& info) {
     m_serverInfoText = info;
-    m_stateBeforeInfo = m_state;
-    m_state = MenuState::ServerInfoScreen;
 }
 
-void MenuManager::drawServerInfoScreen(sf::RenderWindow& window) {
-    float cx = (float)m_windowWidth / 2.0f;
-    float cy = (float)m_windowHeight / 2.0f;
-    float panelW = 500.0f;
-    float panelH = 220.0f;
-    float px = cx - panelW / 2.0f;
-    float py = cy - panelH / 2.0f;
+void MenuManager::setServerStatus(bool running, unsigned short port, const std::string& tunnelUrl, bool tunnelRunning, const std::string& lanAddress) {
+    m_serverRunning = running;
+    m_serverPort = port;
+    m_tunnelUrl = tunnelUrl;
+    m_tunnelRunning = tunnelRunning;
+    m_lanAddress = lanAddress;
+}
 
-    // Dim background
-    sf::RectangleShape dim({(float)m_windowWidth, (float)m_windowHeight});
-    dim.setFillColor(sf::Color(0, 0, 0, 150));
-    window.draw(dim);
+void MenuManager::drawMainMenu(sf::RenderWindow& window, const sf::Vector2f& mousePos) {
+    // Исправлено под SFML 3: Шрифт m_font на первом месте
+    sf::Text title(m_font, "Quadro", 72);
+    title.setFillColor(sf::Color::White);
 
-    // Panel
-    sf::RectangleShape panel({panelW, panelH});
-    panel.setPosition({px, py});
-    panel.setFillColor(sf::Color(35, 35, 35));
+    sf::Text titleShadow = title;
+    titleShadow.setFillColor(sf::Color(50, 50, 50));
+
+    sf::FloatRect lb = title.getLocalBounds();
+    sf::Vector2f titlePos = {m_windowWidth / 2.0f, (m_windowHeight / 2.0f) - 130.0f};
+
+    title.setOrigin({lb.position.x + lb.size.x / 2.0f, lb.position.y + lb.size.y / 2.0f});
+    title.setPosition(titlePos);
+    
+    titleShadow.setOrigin(title.getOrigin());
+    // Исправлено под SFML 3: Передача позиции через вектор
+    titleShadow.setPosition({titlePos.x + 4.0f, titlePos.y + 4.0f});
+
+    window.draw(titleShadow);
+    window.draw(title);
+
+    for (const auto& btn : m_mainMenuButtons) {
+        drawMinecraftButton(window, btn, mousePos);
+    }
+}
+
+void MenuManager::drawSingleplayerMenu(sf::RenderWindow& window, const sf::Vector2f& mousePos) {
+    float cx = m_windowWidth / 2.0f;
+
+    sf::Text title(m_font, "Select World", 24);
+    title.setFillColor(sf::Color::White);
+    sf::FloatRect lb = title.getLocalBounds();
+    title.setOrigin({lb.position.x + lb.size.x / 2.0f, 0.0f});
+    title.setPosition({cx, 30.0f});
+    window.draw(title);
+
+    float listX = cx - 250.0f;
+    float listY = 80.0f;
+    float listW = 500.0f;
+    float listH = m_windowHeight - 240.0f;
+
+    sf::RectangleShape listBg(sf::Vector2f(listW, listH));
+    listBg.setPosition({listX, listY});
+    listBg.setFillColor(sf::Color(16, 16, 16));
+    listBg.setOutlineColor(sf::Color(128, 128, 128));
+    listBg.setOutlineThickness(2.0f);
+    window.draw(listBg);
+
+    float entryY = listY + 8.0f;
+    float entryH = 40.0f;
+
+    for (size_t i = 0; i < m_worldList.size() && (entryY + entryH < listY + listH); ++i) {
+        sf::FloatRect entryBounds({listX + 6.0f, entryY}, {listW - 12.0f, entryH});
+        bool isSelected = (m_worldList[i] == m_selectedWorld);
+        bool isHovered = entryBounds.contains(mousePos);
+
+        if (isSelected) {
+            sf::RectangleShape selectionFrame(sf::Vector2f(listW - 12.0f, entryH));
+            selectionFrame.setPosition({listX + 6.0f, entryY});
+            selectionFrame.setFillColor(sf::Color(32, 32, 32));
+            selectionFrame.setOutlineColor(sf::Color::White);
+            selectionFrame.setOutlineThickness(1.0f);
+            window.draw(selectionFrame);
+        } else if (isHovered) {
+            sf::RectangleShape hoverFrame(sf::Vector2f(listW - 12.0f, entryH));
+            hoverFrame.setPosition({listX + 6.0f, entryY});
+            hoverFrame.setFillColor(sf::Color(24, 24, 24));
+            window.draw(hoverFrame);
+        }
+        sf::Text entryText(m_font, m_worldList[i], 18);
+        entryText.setFillColor(sf::Color::White);
+        entryText.setPosition({listX + 16.0f, entryY + 8.0f});
+        window.draw(entryText);
+        entryY += entryH + 4.0f;
+    }
+    if (m_worldList.empty()) {
+        sf::Text emptyText(m_font, "No worlds found!", 18);
+        emptyText.setFillColor(sf::Color(128, 128, 128));
+        sf::FloatRect elb = emptyText.getLocalBounds();
+        emptyText.setOrigin({elb.position.x + elb.size.x / 2.0f, elb.position.y + elb.size.y / 2.0f});
+        emptyText.setPosition({cx, listY + listH / 2.0f});
+        window.draw(emptyText);
+    }
+
+    float bottomY = m_windowHeight - 60.0f;
+    float btnW = 140.0f;
+    float gap = 10.0f;
+    float totalW = btnW * 4 + gap * 3;
+    float startX = cx - totalW / 2.0f;
+
+    MenuButton playBtn   {"Play",          {startX, bottomY}, {btnW, BTN_HEIGHT}, 10};
+    MenuButton createBtn {"Create World",  {startX + btnW + gap, bottomY}, {btnW, BTN_HEIGHT}, 12};
+    MenuButton deleteBtn {"Delete World",  {startX + (btnW + gap) * 2, bottomY}, {btnW, BTN_HEIGHT}, 13};
+    MenuButton cancelBtn {"Cancel",        {startX + (btnW + gap) * 3, bottomY}, {btnW, BTN_HEIGHT}, 11};
+
+    drawMinecraftButton(window, playBtn, mousePos);
+    drawMinecraftButton(window, createBtn, mousePos);
+    drawMinecraftButton(window, deleteBtn, mousePos);
+    drawMinecraftButton(window, cancelBtn, mousePos);
+}
+
+void MenuManager::drawPauseMenu(sf::RenderWindow& window, const sf::Vector2f& mousePos) {
+    float cx = m_windowWidth / 2.0f;
+
+    sf::RectangleShape overlay(sf::Vector2f(static_cast<float>(m_windowWidth), static_cast<float>(m_windowHeight)));
+    overlay.setFillColor(sf::Color(0, 0, 0, 128));
+    window.draw(overlay);
+
+    sf::Text title(m_font, "Game Paused", 32);
+    title.setFillColor(sf::Color::White);
+    sf::FloatRect lb = title.getLocalBounds();
+    title.setOrigin({lb.position.x + lb.size.x / 2.0f, lb.position.y + lb.size.y / 2.0f});
+    title.setPosition({cx, m_windowHeight / 2.0f - 120.0f});
+    window.draw(title);
+
+    float startY = m_windowHeight / 2.0f - 60.0f;
+    MenuButton resumeBtn   {"Resume",          {cx - BTN_WIDTH / 2.0f, startY}, {BTN_WIDTH, BTN_HEIGHT}, 20};
+    MenuButton settingsBtn {"Settings",        {cx - BTN_WIDTH / 2.0f, startY + BTN_HEIGHT + BTN_SPACING}, {BTN_WIDTH, BTN_HEIGHT}, 3};
+    MenuButton networkBtn  {"Open to Network", {cx - BTN_WIDTH / 2.0f, startY + (BTN_HEIGHT + BTN_SPACING) * 2}, {BTN_WIDTH, BTN_HEIGHT}, 32};
+    MenuButton quitBtn     {"Quit to Menu",    {cx - BTN_WIDTH / 2.0f, startY + (BTN_HEIGHT + BTN_SPACING) * 3}, {BTN_WIDTH, BTN_HEIGHT}, 21};
+
+    drawMinecraftButton(window, resumeBtn, mousePos);
+    drawMinecraftButton(window, settingsBtn, mousePos);
+    drawMinecraftButton(window, networkBtn, mousePos);
+    drawMinecraftButton(window, quitBtn, mousePos);
+}
+
+void MenuManager::drawNetworkMenu(sf::RenderWindow& window, const sf::Vector2f& mousePos) {
+    float cx = m_windowWidth / 2.0f;
+
+    sf::RectangleShape overlay(sf::Vector2f(static_cast<float>(m_windowWidth), static_cast<float>(m_windowHeight)));
+    overlay.setFillColor(sf::Color(0, 0, 0, 160));
+    window.draw(overlay);
+
+    sf::Text title(m_font, "Open to Network", 32);
+    title.setFillColor(sf::Color::White);
+    sf::FloatRect lb = title.getLocalBounds();
+    title.setOrigin({lb.position.x + lb.size.x / 2.0f, lb.position.y + lb.size.y / 2.0f});
+    title.setPosition({cx, m_windowHeight / 2.0f - 120.0f});
+    window.draw(title);
+
+    float startY = m_windowHeight / 2.0f - 50.0f;
+    float halfW = BTN_WIDTH / 2.0f - 4.0f;
+    MenuButton lanBtn    {"Open Locally (LAN)", {cx - BTN_WIDTH / 2.0f, startY}, {halfW, BTN_HEIGHT}, 30};
+    MenuButton tunnelBtn {"Open via Tunnel",    {cx + 4.0f, startY}, {halfW, BTN_HEIGHT}, 31};
+
+    drawMinecraftButton(window, lanBtn, mousePos);
+    drawMinecraftButton(window, tunnelBtn, mousePos);
+
+    float statusY = startY + BTN_HEIGHT + 16.0f;
+
+    sf::Text lanStatus(m_font,
+        m_serverRunning ? ("LAN: " + m_lanAddress + ":" + std::to_string(m_serverPort)) : "LAN not running",
+        16);
+    lanStatus.setFillColor(m_serverRunning ? sf::Color(80, 220, 80) : sf::Color(180, 180, 180));
+    lanStatus.setPosition({cx - BTN_WIDTH / 2.0f, statusY});
+    window.draw(lanStatus);
+
+    sf::Text tunnelStatus(m_font,
+        m_tunnelRunning ? ("Tunnel: " + m_tunnelUrl) : "Tunnel not running",
+        16);
+    tunnelStatus.setFillColor(m_tunnelRunning ? sf::Color(80, 220, 80) : sf::Color(180, 180, 180));
+    tunnelStatus.setPosition({cx - BTN_WIDTH / 2.0f, statusY + 28.0f});
+    window.draw(tunnelStatus);
+
+    MenuButton backBtn {"Back", {cx - BTN_WIDTH / 2.0f, statusY + 80.0f}, {BTN_WIDTH, BTN_HEIGHT}, 33};
+    drawMinecraftButton(window, backBtn, mousePos);
+}
+
+void MenuManager::drawCreateDialog(sf::RenderWindow& window, const sf::Vector2f& mousePos) {
+    float cx = m_windowWidth / 2.0f;
+    float cy = m_windowHeight / 2.0f;
+
+    sf::RectangleShape dimmer(sf::Vector2f(static_cast<float>(m_windowWidth), static_cast<float>(m_windowHeight)));
+    dimmer.setFillColor(sf::Color(0, 0, 0, 160));
+    window.draw(dimmer);
+
+    float panelW = 400.0f;
+    float panelH = 200.0f;
+    sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
+    panel.setPosition({cx - panelW / 2.0f, cy - panelH / 2.0f});
+    panel.setFillColor(sf::Color(30, 30, 30));
     panel.setOutlineColor(sf::Color(100, 100, 100));
     panel.setOutlineThickness(2.0f);
     window.draw(panel);
 
-    Label title("Server Started", m_font, px + 140.0f, py + 20.0f, 24);
-    title.draw(window);
+    sf::Text title(m_font, "Create New World", 24);
+    title.setFillColor(sf::Color::White);
+    sf::FloatRect tb = title.getLocalBounds();
+    title.setOrigin({tb.position.x + tb.size.x / 2.0f, tb.position.y + tb.size.y / 2.0f});
+    title.setPosition({cx, cy - panelH / 2.0f + 30.0f});
+    window.draw(title);
 
-    // Server info text — wrap long lines manually
-    float textY = py + 70.0f;
-    const float maxLineW = panelW - 60.0f;
-
-    // Split info text by newlines or auto-wrap
-    std::string remaining = m_serverInfoText;
-    while (!remaining.empty()) {
-        // Find a newline
-        auto nl = remaining.find('\n');
-        std::string line = (nl != std::string::npos) ? remaining.substr(0, nl) : remaining;
-
-        // If the line is too wide, try to wrap at spaces
-        while (line.size() > 40) {
-            auto space = line.rfind(' ', 40);
-            if (space == std::string::npos) break;
-            std::string part = line.substr(0, space);
-            Label lbl(part, m_font, px + 30.0f, textY, 16);
-            lbl.draw(window);
-            textY += 24.0f;
-            line = line.substr(space + 1);
-        }
-        if (!line.empty()) {
-            Label lbl(line, m_font, px + 30.0f, textY, 16);
-            lbl.draw(window);
-            textY += 24.0f;
-        }
-
-        if (nl != std::string::npos)
-            remaining = remaining.substr(nl + 1);
-        else
-            remaining.clear();
+    if (m_worldNameInput) {
+        m_worldNameInput->update(1.0f / 60.0f, mousePos, m_mouseClicked);
+        m_worldNameInput->draw(window);
     }
 
-    // OK button
-    sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition(window);
-    Button okBtn("OK", m_font, cx - 70.0f, py + panelH - 60.0f, 140.0f, 40.0f);
-    okBtn.update(mousePos);
-    okBtn.draw(window);
+    float btnY = cy + panelH / 2.0f - 55.0f;
+    float btnW = 120.0f;
+    float gap = 20.0f;
 
-    if (okBtn.contains(mousePos) && m_mouseClicked) {
-        m_state = MenuState::PauseMenu;
-    }
+    MenuButton createBtn {"Create", {cx - btnW - gap / 2.0f, btnY}, {btnW, BTN_HEIGHT}, 14};
+    MenuButton cancelBtn {"Cancel", {cx + gap / 2.0f, btnY}, {btnW, BTN_HEIGHT}, 15};
+
+    drawMinecraftButton(window, createBtn, mousePos);
+    drawMinecraftButton(window, cancelBtn, mousePos);
 }

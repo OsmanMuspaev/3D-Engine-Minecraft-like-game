@@ -3,7 +3,6 @@
 #include <string>
 #include <unordered_map>
 
-// Represents an item type with name, associated block, stack size, and texture.
 struct Item {
     std::string name;
     BlockType blockType = BlockType::AIR;
@@ -15,14 +14,18 @@ struct Item {
         : name(n), blockType(bt), maxStackSize(maxStack), textureName(tex) {}
 };
 
-// Singleton registry for all item types, indexed by BlockType and name.
 class ItemRegistry {
 public:
+    // Returns the singleton instance of ItemRegistry.
     static ItemRegistry& instance();
 
+    // Registers all block types and armor items as items with their textures.
     void init();
+    // Looks up an item by its BlockType, returns empty item if not found.
     const Item& getItem(BlockType type) const;
+    // Looks up an item by its string name, returns empty item if not found.
     const Item& getItemByName(const std::string& name) const;
+    // Returns the max stack size for a given BlockType, default 64.
     int getMaxStackSize(BlockType type) const;
 
 private:
@@ -32,7 +35,6 @@ private:
     static const Item s_emptyItem;
 };
 
-// A stack of items of the same type with count tracking.
 struct ItemStack {
     BlockType type = BlockType::AIR;
     int count = 0;

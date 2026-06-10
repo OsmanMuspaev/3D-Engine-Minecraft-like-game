@@ -2,23 +2,23 @@
 #include "World.h"
 #include "BlockRegistry.h"
 
-// Initializes a chunk at the given chunk coordinates with all-air blocks
+// Initializes a chunk at the given chunk coordinates with all-air blocks.
 Chunk::Chunk(int cx, int cy, int cz) : m_cx(cx), m_cy(cy), m_cz(cz) {
     m_blocks.resize(SIZE * SIZE * SIZE, Block(BlockType::AIR));
 }
 
-// Sets the block type at local coordinates and marks the chunk dirty
+// Sets the block type at local coordinates and marks the chunk dirty.
 void Chunk::setBlock(int x, int y, int z, BlockType type) {
     m_blocks[index(x, y, z)].type = type;
     m_dirty = true;
 }
 
-// Returns the block at local coordinates
+// Returns the block at local coordinates.
 Block Chunk::getBlock(int x, int y, int z) const {
     return m_blocks[index(x, y, z)];
 }
 
-// Appends two triangles (6 indices) for a quad face
+// Appends two triangles (6 indices) for a quad face.
 void Chunk::addFaceData(const std::array<sf::Vector2f, 4>& faceUVs,
                          const sf::Color& tintColor) const
 {
@@ -30,7 +30,7 @@ void Chunk::addFaceData(const std::array<sf::Vector2f, 4>& faceUVs,
     }
 }
 
-// Rebuilds the chunk mesh by iterating all blocks and emitting visible faces
+// Rebuilds the chunk mesh by iterating all blocks and emitting visible faces.
 void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
     m_meshVerts.clear();
     m_meshIndices.clear();
@@ -55,10 +55,8 @@ void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
 
                 Biome biome = world.getBiome(wx, wz);
 
-                // Determine if the current block is transparent
                 bool isTransparent = BlockRegistry::isTransparent(block.type);
 
-                // Determines whether a face should be rendered toward a neighbor
                 auto shouldRenderFace = [&](int dx, int dy, int dz) {
                     Block neighbor = world.getBlock(wx + dx, wy + dy, wz + dz);
                     if (isTransparent) return true;
@@ -125,7 +123,7 @@ void Chunk::buildMesh(const TextureManager& texMgr, const World& world) {
     m_dirty = false;
 }
 
-// Draws the chunk mesh if it has geometry
+// Draws the chunk mesh if it has geometry.
 void Chunk::draw(Renderer& renderer, const TextureManager& texMgr,
                  const Matrix4x4& view, const Matrix4x4& proj, const Vector3& cameraPos) const {
     if (m_meshIndices.empty()) return;

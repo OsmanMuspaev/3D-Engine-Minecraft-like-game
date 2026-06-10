@@ -8,13 +8,13 @@ static const std::array<int, 6> ALL_WATER = {TINT_WATER, TINT_WATER, TINT_WATER,
 static const std::array<int, 6> TOP_GRASS_TINT = {TINT_NONE, TINT_NONE, TINT_GRASS, TINT_NONE, TINT_NONE, TINT_NONE};
 static const std::array<int, 6> SIDE_GRASS_TINT = {TINT_GRASS, TINT_GRASS, TINT_NONE, TINT_NONE, TINT_GRASS, TINT_GRASS};
 
-// Returns the singleton block registry instance
+// Returns the singleton block registry instance.
 BlockRegistry& BlockRegistry::instance() {
     static BlockRegistry reg;
     return reg;
 }
 
-// Creates a BlockDef with the same texture on all six faces
+// Creates a BlockDef with the same texture on all six faces.
 static BlockDef makeDef(const std::string& name, const std::string& allFaces,
                         bool solid, bool transparent, int tint = TINT_NONE) {
     BlockDef d;
@@ -26,7 +26,7 @@ static BlockDef makeDef(const std::string& name, const std::string& allFaces,
     return d;
 }
 
-// Creates a BlockDef with per-face textures and per-face tint indices
+// Creates a BlockDef with per-face textures and per-face tint indices.
 static BlockDef makeDefFaces(const std::string& name,
                              const std::string& px, const std::string& nx,
                              const std::string& py, const std::string& ny,
@@ -42,28 +42,24 @@ static BlockDef makeDefFaces(const std::string& name,
     return d;
 }
 
-// Initializes all block definitions
+// Initializes all block definitions.
 void BlockRegistry::init() {
     m_defs.clear();
 
-    // Helper: uniform texture block
     auto uni = [&](BlockType type, const std::string& name, const std::string& tex,
                    bool solid = true, bool transparent = false, int tint = TINT_NONE) {
         m_defs[type] = makeDef(name, tex, solid, transparent, tint);
     };
 
-    // Helper: log block with side/top textures
     auto log = [&](BlockType type, const std::string& name,
                    const std::string& sideTex, const std::string& topTex) {
         m_defs[type] = makeDefFaces(name, sideTex, sideTex, topTex, topTex, sideTex, sideTex, true, false);
     };
 
-    // Helper: plank block (uniform texture)
     auto plank = [&](BlockType type, const std::string& name, const std::string& tex) {
         uni(type, name, tex);
     };
 
-    // Original block types
     m_defs[BlockType::GRASS] = makeDefFaces("grass",
         "grass_block_side", "grass_block_side",
         "grass_block_top", "dirt",
@@ -95,7 +91,6 @@ void BlockRegistry::init() {
 
     m_defs[BlockType::SNOW_BLOCK] = makeDef("snow_block", "snow", true, false);
 
-    // Earth / ground blocks
     uni(BlockType::COBBLESTONE, "cobblestone", "cobblestone");
     uni(BlockType::GRAVEL, "gravel", "gravel");
     uni(BlockType::CLAY, "clay", "clay");
@@ -127,7 +122,6 @@ void BlockRegistry::init() {
     uni(BlockType::MOSSY_COBBLESTONE, "mossy_cobblestone", "mossy_cobblestone");
     uni(BlockType::SMOOTH_STONE, "smooth_stone", "smooth_stone");
 
-    // Ores
     uni(BlockType::COAL_ORE, "coal_ore", "coal_ore");
     uni(BlockType::IRON_ORE, "iron_ore", "iron_ore");
     uni(BlockType::COPPER_ORE, "copper_ore", "copper_ore");
@@ -145,7 +139,6 @@ void BlockRegistry::init() {
     uni(BlockType::DEEPSLATE_LAPIS_ORE, "deepslate_lapis_ore", "deepslate_lapis_ore");
     uni(BlockType::DEEPSLATE_REDSTONE_ORE, "deepslate_redstone_ore", "deepslate_redstone_ore");
 
-    // Mineral blocks
     uni(BlockType::IRON_BLOCK, "iron_block", "iron_block");
     uni(BlockType::GOLD_BLOCK, "gold_block", "gold_block");
     uni(BlockType::DIAMOND_BLOCK, "diamond_block", "diamond_block");
@@ -159,7 +152,6 @@ void BlockRegistry::init() {
     uni(BlockType::RAW_GOLD_BLOCK, "raw_gold_block", "raw_gold_block");
     uni(BlockType::RAW_COPPER_BLOCK, "raw_copper_block", "raw_copper_block");
 
-    // Planks
     plank(BlockType::OAK_PLANKS, "oak_planks", "oak_planks");
     plank(BlockType::SPRUCE_PLANKS, "spruce_planks", "spruce_planks");
     plank(BlockType::BIRCH_PLANKS, "birch_planks", "birch_planks");
@@ -170,7 +162,6 @@ void BlockRegistry::init() {
     plank(BlockType::CRIMSON_PLANKS, "crimson_planks", "crimson_planks");
     plank(BlockType::WARPED_PLANKS, "warped_planks", "warped_planks");
 
-    // Logs
     log(BlockType::OAK_LOG, "oak_log", "oak_log", "oak_log_top");
     log(BlockType::SPRUCE_LOG, "spruce_log", "spruce_log", "spruce_log_top");
     log(BlockType::BIRCH_LOG, "birch_log", "birch_log", "birch_log_top");
@@ -181,7 +172,6 @@ void BlockRegistry::init() {
     log(BlockType::CRIMSON_STEM, "crimson_stem", "crimson_stem", "crimson_stem_top");
     log(BlockType::WARPED_STEM, "warped_stem", "warped_stem", "warped_stem_top");
 
-    // Stripped logs
     log(BlockType::STRIPPED_OAK_LOG, "stripped_oak_log", "stripped_oak_log", "stripped_oak_log_top");
     log(BlockType::STRIPPED_SPRUCE_LOG, "stripped_spruce_log", "stripped_spruce_log", "stripped_spruce_log_top");
     log(BlockType::STRIPPED_BIRCH_LOG, "stripped_birch_log", "stripped_birch_log", "stripped_birch_log_top");
@@ -190,7 +180,6 @@ void BlockRegistry::init() {
     log(BlockType::STRIPPED_DARK_OAK_LOG, "stripped_dark_oak_log", "stripped_dark_oak_log", "stripped_dark_oak_log_top");
     log(BlockType::STRIPPED_MANGROVE_LOG, "stripped_mangrove_log", "stripped_mangrove_log", "stripped_mangrove_log_top");
 
-    // Leaves
     auto leaf = [&](BlockType type, const std::string& name, const std::string& tex) {
         m_defs[type] = makeDef(name, tex, true, true, TINT_FOLIAGE);
     };
@@ -204,7 +193,6 @@ void BlockRegistry::init() {
     leaf(BlockType::AZALEA_LEAVES, "azalea_leaves", "azalea_leaves");
     leaf(BlockType::FLOWERING_AZALEA_LEAVES, "flowering_azalea_leaves", "flowering_azalea_leaves");
 
-    // Nether blocks
     uni(BlockType::NETHERRACK, "netherrack", "netherrack");
     uni(BlockType::NETHER_BRICKS, "nether_bricks", "nether_bricks");
     uni(BlockType::RED_NETHER_BRICKS, "red_nether_bricks", "red_nether_bricks");
@@ -238,7 +226,6 @@ void BlockRegistry::init() {
     uni(BlockType::MAGMA, "magma", "magma");
     uni(BlockType::CRYING_OBSIDIAN, "crying_obsidian", "crying_obsidian");
 
-    // Building blocks
     uni(BlockType::BRICKS, "bricks", "bricks");
 
     m_defs[BlockType::RED_SANDSTONE] = makeDefFaces("red_sandstone",
@@ -256,7 +243,6 @@ void BlockRegistry::init() {
     uni(BlockType::END_STONE, "end_stone", "end_stone");
     uni(BlockType::END_STONE_BRICKS, "end_stone_bricks", "end_stone_bricks");
 
-    // Utility / redstone blocks
     m_defs[BlockType::FURNACE] = makeDefFaces("furnace",
         "furnace_side", "furnace_front", "furnace_top", "furnace_top",
         "furnace_side", "furnace_side", true, false);
@@ -312,7 +298,6 @@ void BlockRegistry::init() {
         "piston_side", "piston_top_sticky", "piston_top", "piston_top",
         "piston_side", "piston_side", true, false);
 
-    // Glass blocks
     auto glassBlock = [&](BlockType type, const std::string& name, const std::string& tex) {
         m_defs[type] = makeDef(name, tex, true, true);
     };
@@ -335,7 +320,6 @@ void BlockRegistry::init() {
     glassBlock(BlockType::RED_STAINED_GLASS, "red_stained_glass", "red_stained_glass");
     glassBlock(BlockType::BLACK_STAINED_GLASS, "black_stained_glass", "black_stained_glass");
 
-    // Terracotta blocks
     auto terracottaBlock = [&](BlockType type, const std::string& name, const std::string& tex) {
         m_defs[type] = makeDef(name, tex, true, false);
     };
@@ -357,7 +341,6 @@ void BlockRegistry::init() {
     terracottaBlock(BlockType::RED_TERRACOTTA, "red_terracotta", "red_terracotta");
     terracottaBlock(BlockType::BLACK_TERRACOTTA, "black_terracotta", "black_terracotta");
 
-    // Wool blocks
     auto woolBlock = [&](BlockType type, const std::string& name, const std::string& tex) {
         m_defs[type] = makeDef(name, tex, true, false);
     };
@@ -378,7 +361,6 @@ void BlockRegistry::init() {
     woolBlock(BlockType::RED_WOOL, "red_wool", "red_wool");
     woolBlock(BlockType::BLACK_WOOL, "black_wool", "black_wool");
 
-    // Concrete blocks
     auto concreteBlock = [&](BlockType type, const std::string& name, const std::string& tex) {
         m_defs[type] = makeDef(name, tex, true, false);
     };
@@ -399,12 +381,10 @@ void BlockRegistry::init() {
     concreteBlock(BlockType::RED_CONCRETE, "red_concrete", "red_concrete");
     concreteBlock(BlockType::BLACK_CONCRETE, "black_concrete", "black_concrete");
 
-    // Ice blocks
     uni(BlockType::ICE, "ice", "ice");
     uni(BlockType::PACKED_ICE, "packed_ice", "packed_ice");
     uni(BlockType::BLUE_ICE, "blue_ice", "blue_ice");
 
-    // Misc blocks
     uni(BlockType::SPONGE, "sponge", "sponge");
     uni(BlockType::WET_SPONGE, "wet_sponge", "wet_sponge");
 
@@ -449,7 +429,7 @@ void BlockRegistry::init() {
     std::cout << "BlockRegistry: initialized " << m_defs.size() << " block types\n";
 }
 
-// Looks up the BlockDef for a given block type, returns empty def if not found
+// Looks up the BlockDef for a given block type, returns empty def if not found.
 const BlockDef& BlockRegistry::getDef(BlockType type) const {
     auto it = m_defs.find(type);
     if (it != m_defs.end()) {
@@ -459,7 +439,7 @@ const BlockDef& BlockRegistry::getDef(BlockType type) const {
     return empty;
 }
 
-// Returns the six atlas tile indices for the block's face textures
+// Returns the six atlas tile indices for the block's face textures.
 std::array<unsigned int, 6> BlockRegistry::getBlockTextures(
     const TextureManager& texMgr, BlockType type) const
 {

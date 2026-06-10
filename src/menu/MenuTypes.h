@@ -6,6 +6,7 @@ enum class MenuState {
     MultiplayerMenu,
     SettingsMenu,
     PauseMenu,
+    NetworkMenu,
     ServerInfoScreen,
     Playing
 };

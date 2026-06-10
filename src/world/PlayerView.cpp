@@ -57,32 +57,26 @@ void PlayerView::buildBox(MeshData& mesh,
         mesh.tints.insert(mesh.tints.end(), 4, sf::Color::White);
     };
 
-    // Front (+Z)
     addFace({min.x, min.y, max.z}, {max.x, min.y, max.z},
             {max.x, max.y, max.z}, {min.x, max.y, max.z},
             fu0, fv0, fu1, fv1);
 
-    // Back (-Z)
     addFace({max.x, min.y, min.z}, {min.x, min.y, min.z},
             {min.x, max.y, min.z}, {max.x, max.y, min.z},
             bu0, bv0, bu1, bv1);
 
-    // Top (+Y)
     addFace({min.x, max.y, max.z}, {max.x, max.y, max.z},
             {max.x, max.y, min.z}, {min.x, max.y, min.z},
             tu0, tv0, tu1, tv1);
 
-    // Bottom (-Y)
     addFace({min.x, min.y, min.z}, {max.x, min.y, min.z},
             {max.x, min.y, max.z}, {min.x, min.y, max.z},
             du0, dv0, du1, dv1);
 
-    // Right (+X)
     addFace({max.x, min.y, max.z}, {max.x, min.y, min.z},
             {max.x, max.y, min.z}, {max.x, max.y, max.z},
             ru0, rv0, ru1, rv1);
 
-    // Left (-X)
     addFace({min.x, min.y, min.z}, {min.x, min.y, max.z},
             {min.x, max.y, max.z}, {min.x, max.y, min.z},
             lu0, lv0, lu1, lv1);

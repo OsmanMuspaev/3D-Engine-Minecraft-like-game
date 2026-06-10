@@ -25,7 +25,6 @@ void ItemRegistry::init() {
         m_itemsByName[name] = item;
     };
 
-    // Helper: use the block's PX face texture name from BlockRegistry
     auto addFromBlock = [&](BlockType type, const std::string& name, int maxStack = 64) {
         const auto& def = BlockRegistry::instance().getDef(type);
         std::string tex = def.textures[0];
@@ -44,7 +43,6 @@ void ItemRegistry::init() {
     addItem(BlockType::BEDROCK, "bedrock", 64, "bedrock");
     addItem(BlockType::SANDSTONE, "sandstone", 64, "sandstone_top");
 
-    // Earth / ground blocks
     addFromBlock(BlockType::COBBLESTONE, "cobblestone");
     addFromBlock(BlockType::GRAVEL, "gravel");
     addFromBlock(BlockType::CLAY, "clay");
@@ -69,7 +67,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::MOSSY_COBBLESTONE, "mossy_cobblestone");
     addFromBlock(BlockType::SMOOTH_STONE, "smooth_stone");
 
-    // Ores
     addFromBlock(BlockType::COAL_ORE, "coal_ore");
     addFromBlock(BlockType::IRON_ORE, "iron_ore");
     addFromBlock(BlockType::COPPER_ORE, "copper_ore");
@@ -87,7 +84,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::DEEPSLATE_LAPIS_ORE, "deepslate_lapis_ore");
     addFromBlock(BlockType::DEEPSLATE_REDSTONE_ORE, "deepslate_redstone_ore");
 
-    // Mineral blocks
     addFromBlock(BlockType::IRON_BLOCK, "iron_block");
     addFromBlock(BlockType::GOLD_BLOCK, "gold_block");
     addFromBlock(BlockType::DIAMOND_BLOCK, "diamond_block");
@@ -101,7 +97,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::RAW_GOLD_BLOCK, "raw_gold_block");
     addFromBlock(BlockType::RAW_COPPER_BLOCK, "raw_copper_block");
 
-    // Planks
     addFromBlock(BlockType::OAK_PLANKS, "oak_planks");
     addFromBlock(BlockType::SPRUCE_PLANKS, "spruce_planks");
     addFromBlock(BlockType::BIRCH_PLANKS, "birch_planks");
@@ -112,7 +107,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::CRIMSON_PLANKS, "crimson_planks");
     addFromBlock(BlockType::WARPED_PLANKS, "warped_planks");
 
-    // Logs
     addFromBlock(BlockType::OAK_LOG, "oak_log");
     addFromBlock(BlockType::SPRUCE_LOG, "spruce_log");
     addFromBlock(BlockType::BIRCH_LOG, "birch_log");
@@ -123,7 +117,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::CRIMSON_STEM, "crimson_stem");
     addFromBlock(BlockType::WARPED_STEM, "warped_stem");
 
-    // Stripped logs
     addFromBlock(BlockType::STRIPPED_OAK_LOG, "stripped_oak_log");
     addFromBlock(BlockType::STRIPPED_SPRUCE_LOG, "stripped_spruce_log");
     addFromBlock(BlockType::STRIPPED_BIRCH_LOG, "stripped_birch_log");
@@ -132,7 +125,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::STRIPPED_DARK_OAK_LOG, "stripped_dark_oak_log");
     addFromBlock(BlockType::STRIPPED_MANGROVE_LOG, "stripped_mangrove_log");
 
-    // Leaves
     addFromBlock(BlockType::OAK_LEAVES, "oak_leaves");
     addFromBlock(BlockType::SPRUCE_LEAVES, "spruce_leaves");
     addFromBlock(BlockType::BIRCH_LEAVES, "birch_leaves");
@@ -143,7 +135,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::AZALEA_LEAVES, "azalea_leaves");
     addFromBlock(BlockType::FLOWERING_AZALEA_LEAVES, "flowering_azalea_leaves");
 
-    // Nether blocks
     addFromBlock(BlockType::NETHERRACK, "netherrack");
     addFromBlock(BlockType::NETHER_BRICKS, "nether_bricks");
     addFromBlock(BlockType::RED_NETHER_BRICKS, "red_nether_bricks");
@@ -163,7 +154,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::MAGMA, "magma");
     addFromBlock(BlockType::CRYING_OBSIDIAN, "crying_obsidian");
 
-    // Building blocks
     addFromBlock(BlockType::BRICKS, "bricks");
     addFromBlock(BlockType::RED_SANDSTONE, "red_sandstone");
     addFromBlock(BlockType::QUARTZ_BLOCK, "quartz_block");
@@ -177,7 +167,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::END_STONE, "end_stone");
     addFromBlock(BlockType::END_STONE_BRICKS, "end_stone_bricks");
 
-    // Utility / redstone
     addFromBlock(BlockType::FURNACE, "furnace");
     addFromBlock(BlockType::DISPENSER, "dispenser");
     addFromBlock(BlockType::DROPPER, "dropper");
@@ -197,7 +186,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::PISTON, "piston");
     addFromBlock(BlockType::STICKY_PISTON, "sticky_piston");
 
-    // Glass
     addFromBlock(BlockType::GLASS, "glass");
     addFromBlock(BlockType::TINTED_GLASS, "tinted_glass");
     addFromBlock(BlockType::WHITE_STAINED_GLASS, "white_stained_glass");
@@ -217,7 +205,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::RED_STAINED_GLASS, "red_stained_glass");
     addFromBlock(BlockType::BLACK_STAINED_GLASS, "black_stained_glass");
 
-    // Terracotta
     addFromBlock(BlockType::TERRACOTTA, "terracotta");
     addFromBlock(BlockType::WHITE_TERRACOTTA, "white_terracotta");
     addFromBlock(BlockType::ORANGE_TERRACOTTA, "orange_terracotta");
@@ -236,7 +223,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::RED_TERRACOTTA, "red_terracotta");
     addFromBlock(BlockType::BLACK_TERRACOTTA, "black_terracotta");
 
-    // Wool
     addFromBlock(BlockType::WHITE_WOOL, "white_wool");
     addFromBlock(BlockType::ORANGE_WOOL, "orange_wool");
     addFromBlock(BlockType::MAGENTA_WOOL, "magenta_wool");
@@ -254,7 +240,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::RED_WOOL, "red_wool");
     addFromBlock(BlockType::BLACK_WOOL, "black_wool");
 
-    // Concrete
     addFromBlock(BlockType::WHITE_CONCRETE, "white_concrete");
     addFromBlock(BlockType::ORANGE_CONCRETE, "orange_concrete");
     addFromBlock(BlockType::MAGENTA_CONCRETE, "magenta_concrete");
@@ -272,12 +257,10 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::RED_CONCRETE, "red_concrete");
     addFromBlock(BlockType::BLACK_CONCRETE, "black_concrete");
 
-    // Ice
     addFromBlock(BlockType::ICE, "ice");
     addFromBlock(BlockType::PACKED_ICE, "packed_ice");
     addFromBlock(BlockType::BLUE_ICE, "blue_ice");
 
-    // Misc blocks
     addFromBlock(BlockType::SPONGE, "sponge");
     addFromBlock(BlockType::WET_SPONGE, "wet_sponge");
     addFromBlock(BlockType::HAY_BLOCK, "hay_block");
@@ -297,7 +280,6 @@ void ItemRegistry::init() {
     addFromBlock(BlockType::AMETHYST_BLOCK, "amethyst_block");
     addFromBlock(BlockType::BUDDING_AMETHYST, "budding_amethyst");
 
-    // Armor items (stack size 1)
     auto addArmor = [&](BlockType type, const std::string& name, const std::string& texture) {
         addItem(type, name, 1, texture);
     };

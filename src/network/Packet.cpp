@@ -1,7 +1,5 @@
 #include "Packet.h"
 
-// --- PacketType ----------------------------------------------------------
-
 sf::Packet& operator<<(sf::Packet& packet, PacketType type) {
     return packet << static_cast<uint8_t>(type);
 }
@@ -12,8 +10,6 @@ sf::Packet& operator>>(sf::Packet& packet, PacketType& type) {
     type = static_cast<PacketType>(raw);
     return packet;
 }
-
-// --- PlayerState ---------------------------------------------------------
 
 sf::Packet& operator<<(sf::Packet& packet, const PlayerState& state) {
     packet << state.id

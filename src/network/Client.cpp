@@ -8,10 +8,7 @@ Client::~Client() {
     disconnect();
 }
 
-// ---------------------------------------------------------------------------
-// Connection
-// ---------------------------------------------------------------------------
-
+// Connects to the given host and port, spawning a background receive thread.
 bool Client::connect(const std::string& host, unsigned short port) {
     if (m_connected)
         return false;
@@ -28,12 +25,12 @@ bool Client::connect(const std::string& host, unsigned short port) {
     m_connected = true;
     std::cout << "[Client] Connected to " << host << ":" << port << "\n";
 
-    // Spawn the background receive thread.
     m_receiveThread = std::thread(&Client::receiveLoop, this);
 
     return true;
 }
 
+// Disconnects from the server and clears all buffered data.
 void Client::disconnect() {
     if (!m_connected)
         return;
@@ -55,10 +52,7 @@ void Client::disconnect() {
     std::cout << "[Client] Disconnected.\n";
 }
 
-// ---------------------------------------------------------------------------
-// Sending
-// ---------------------------------------------------------------------------
-
+// Sends the local player's position and orientation to the server.
 void Client::sendMove(float x, float y, float z, float yaw, float pitch) {
     if (!m_connected)
         return;
@@ -76,6 +70,7 @@ void Client::sendMove(float x, float y, float z, float yaw, float pitch) {
     (void)m_socket.send(pkt);
 }
 
+// Sends a block break request to the server.
 void Client::sendBlockBreak(int x, int y, int z) {
     if (!m_connected)
         return;
@@ -85,6 +80,7 @@ void Client::sendBlockBreak(int x, int y, int z) {
     (void)m_socket.send(pkt);
 }
 
+// Sends a block place request to the server.
 void Client::sendBlockPlace(int x, int y, int z, unsigned int blockType) {
     if (!m_connected)
         return;
@@ -94,6 +90,7 @@ void Client::sendBlockPlace(int x, int y, int z, unsigned int blockType) {
     (void)m_socket.send(pkt);
 }
 
+// Sends a chat message to the server.
 void Client::sendChat(const std::string& message) {
     if (!m_connected)
         return;
@@ -103,44 +100,32 @@ void Client::sendChat(const std::string& message) {
     (void)m_socket.send(pkt);
 }
 
-// ---------------------------------------------------------------------------
-// Game-loop update – swap out the buffered events so the caller can process
-// them without holding the lock for the rest of the frame.
-// ---------------------------------------------------------------------------
-
+// Swaps out buffered events so the caller can process them without holding the lock.
 void Client::update(float dt) {
     if (!m_connected)
         return;
 
-    // Send our own position periodically (every ~50 ms ≈ 20 Hz).
     m_sendTimer += dt;
     if (m_sendTimer >= 0.05f) {
-        // The game code should call sendMove() directly with the current
-        // camera position; this is just a fallback tick.
         m_sendTimer = 0.0f;
     }
-
-    // Events are consumed by the game code through the get*() accessors.
-    // Nothing extra to do here – the receive thread fills the buffers.
 }
 
-// ---------------------------------------------------------------------------
-// Thread-safe accessors (copy under lock)
-// ---------------------------------------------------------------------------
-
+// Returns a copy of the other players list under the mutex lock.
 std::vector<PlayerState> Client::getOtherPlayers() {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_otherPlayers;
 }
 
+// Moves block update events out so the caller owns them.
 std::vector<Client::BlockUpdateEvent> Client::getBlockUpdates() {
     std::lock_guard<std::mutex> lock(m_mutex);
-    // Move the events out so the caller owns them and we don't accumulate.
     auto out = std::move(m_blockUpdates);
     m_blockUpdates.clear();
     return out;
 }
 
+// Moves chat messages out so the caller owns them.
 std::vector<Client::ChatEvent> Client::getChatMessages() {
     std::lock_guard<std::mutex> lock(m_mutex);
     auto out = std::move(m_chatMessages);
@@ -148,10 +133,7 @@ std::vector<Client::ChatEvent> Client::getChatMessages() {
     return out;
 }
 
-// ---------------------------------------------------------------------------
-// Background receive loop – runs on its own thread until disconnection.
-// ---------------------------------------------------------------------------
-
+// Background receive loop that runs on its own thread until disconnection.
 void Client::receiveLoop() {
     while (m_connected) {
         sf::Packet packet;
@@ -176,9 +158,6 @@ void Client::receiveLoop() {
                 case PacketType::WorldData: {
                     int worldSize;
                     packet >> worldSize;
-                    // Block data follows (x, y, z, blockType) for every
-                    // non-air block. The game code should apply these once
-                    // the flag hasWorldData becomes true.
                     std::lock_guard<std::mutex> lock(m_mutex);
                     m_hasWorld = true;
                     break;
@@ -214,7 +193,6 @@ void Client::receiveLoop() {
                     PlayerState ps;
                     packet >> ps;
                     std::lock_guard<std::mutex> lock(m_mutex);
-                    // Update existing player or add new one.
                     bool found = false;
                     for (auto& existing : m_otherPlayers) {
                         if (existing.id == ps.id) {
@@ -242,6 +220,5 @@ void Client::receiveLoop() {
             m_connected = false;
             return;
         }
-        // Error or NotReady – just retry next iteration.
     }
 }

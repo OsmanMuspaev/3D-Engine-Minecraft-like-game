@@ -7,7 +7,6 @@
 #include "../math/Vector4.h"
 #include "../math/Matrix4x4.h"
 
-// Triangle data prepared for rasterization
 struct RenderTriangle {
     Vector4 v0, v1, v2;
     sf::Vector2f uv0, uv1, uv2;
@@ -17,7 +16,6 @@ struct RenderTriangle {
     float invW0, invW1, invW2;
 };
 
-// Software rasterizer with depth buffer and texture support
 class Renderer {
 public:
     Renderer(unsigned int width, unsigned int height);
@@ -29,7 +27,6 @@ public:
     void clear(sf::Color color);
     void clearRect(unsigned int x, unsigned int y, unsigned int w, unsigned int h, sf::Color color);
 
-    // Draws a textured or flat-colored mesh with per-vertex tinting
     void drawMesh(const std::vector<Vector3>& vertices,
                   const std::vector<unsigned int>& indices,
                   const std::vector<sf::Vector2f>& uvs,
@@ -41,7 +38,6 @@ public:
                   const Vector3& cameraPos,
                   bool disableCulling = false);
 
-    // Copies the internal image to the SFML render window
     void display(sf::RenderWindow& window);
 
 private:
@@ -52,11 +48,9 @@ private:
     Vector3 m_lightDir;
     sf::Color m_clearColor;
 
-    // Rasterizes triangles within a horizontal stripe [yStart, yEnd)
     void rasterizeStripe(int yStart, int yEnd, const std::vector<RenderTriangle>& triangles,
                          const uint8_t* texPixels, sf::Vector2u texSize);
 
-    // Core mesh drawing: builds triangles, culls, lights, and dispatches rasterization
     void drawMeshInternal(
         const std::vector<Vector4>& transformed,
         const std::vector<Vector3>& vertices,

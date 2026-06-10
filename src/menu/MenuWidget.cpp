@@ -88,12 +88,27 @@ void TextInput::handleEvent(const sf::Event& event) {
     if (!focused) return;
 
     if (const auto* textEvent = event.getIf<sf::Event::TextEntered>()) {
-        if (textEvent->unicode == 8) {
+        char32_t unicode = textEvent->unicode;
+        if (unicode == 8) {
             if (!text.empty()) text.pop_back();
-        } else if (textEvent->unicode == 13) {
+        } else if (unicode == 13) {
             focused = false;
-        } else if (textEvent->unicode >= 32 && textEvent->unicode < 128) {
-            text += static_cast<char>(textEvent->unicode);
+        } else if (unicode >= 32) {
+            if (unicode < 0x80) {
+                text += static_cast<char>(unicode);
+            } else if (unicode < 0x800) {
+                text += static_cast<char>(0xC0 | (unicode >> 6));
+                text += static_cast<char>(0x80 | (unicode & 0x3F));
+            } else if (unicode < 0x10000) {
+                text += static_cast<char>(0xE0 | (unicode >> 12));
+                text += static_cast<char>(0x80 | ((unicode >> 6) & 0x3F));
+                text += static_cast<char>(0x80 | (unicode & 0x3F));
+            } else {
+                text += static_cast<char>(0xF0 | (unicode >> 18));
+                text += static_cast<char>(0x80 | ((unicode >> 12) & 0x3F));
+                text += static_cast<char>(0x80 | ((unicode >> 6) & 0x3F));
+                text += static_cast<char>(0x80 | (unicode & 0x3F));
+            }
         }
         value.setString(text);
     }

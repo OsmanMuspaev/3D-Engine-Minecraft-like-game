@@ -1,35 +1,37 @@
 #include "Inventory.h"
 #include <algorithm>
 
-// Initialize all slots to empty stacks.
+// Initializes all slots to empty stacks.
 Inventory::Inventory() {
     m_slots.fill(ItemStack());
     m_armorSlots.fill(ItemStack());
 }
 
-// Return a clamped reference to a main inventory slot by flat index.
+// Returns a clamped reference to a main inventory slot by flat index.
 ItemStack& Inventory::getSlot(int index) {
     index = std::clamp(index, 0, TOTAL_SIZE - 1);
     return m_slots[index];
 }
 
+// Returns a const clamped reference to a main inventory slot by flat index.
 const ItemStack& Inventory::getSlot(int index) const {
     index = std::clamp(index, 0, TOTAL_SIZE - 1);
     return m_slots[index];
 }
 
-// Return a clamped reference to a hotbar slot (indices 0-8).
+// Returns a clamped reference to a hotbar slot (indices 0-8).
 ItemStack& Inventory::getHotbarSlot(int index) {
     index = std::clamp(index, 0, HOTBAR_SIZE - 1);
     return m_slots[index];
 }
 
+// Returns a const clamped reference to a hotbar slot (indices 0-8).
 const ItemStack& Inventory::getHotbarSlot(int index) const {
     index = std::clamp(index, 0, HOTBAR_SIZE - 1);
     return m_slots[index];
 }
 
-// Return a reference to a slot in the 3x9 main grid using row and column.
+// Returns a reference to a slot in the 3x9 main grid using row and column.
 ItemStack& Inventory::getMainSlot(int row, int col) {
     row = std::clamp(row, 0, MAIN_ROWS - 1);
     col = std::clamp(col, 0, MAIN_COLS - 1);
@@ -37,6 +39,7 @@ ItemStack& Inventory::getMainSlot(int row, int col) {
     return m_slots[index];
 }
 
+// Returns a const reference to a slot in the 3x9 main grid using row and column.
 const ItemStack& Inventory::getMainSlot(int row, int col) const {
     row = std::clamp(row, 0, MAIN_ROWS - 1);
     col = std::clamp(col, 0, MAIN_COLS - 1);
@@ -44,16 +47,17 @@ const ItemStack& Inventory::getMainSlot(int row, int col) const {
     return m_slots[index];
 }
 
-// Return a reference to one of the four armor slots.
+// Returns a reference to one of the four armor slots.
 ItemStack& Inventory::getArmorSlot(int index) {
     return m_armorSlots[index];
 }
 
+// Returns a const reference to one of the four armor slots.
 const ItemStack& Inventory::getArmorSlot(int index) const {
     return m_armorSlots[index];
 }
 
-// Check whether a block type is any piece of armor.
+// Checks whether a block type is any piece of armor.
 bool Inventory::isArmor(BlockType type) {
     switch (type) {
         case BlockType::LEATHER_HELMET:
@@ -86,18 +90,18 @@ bool Inventory::isArmor(BlockType type) {
     }
 }
 
-// Wrap the hotbar selection index around valid range.
+// Wraps the hotbar selection index around valid range.
 void Inventory::cycleHotbar(int delta) {
     m_selectedHotbar = (m_selectedHotbar + delta) % HOTBAR_SIZE;
     if (m_selectedHotbar < 0) m_selectedHotbar += HOTBAR_SIZE;
 }
 
-// Attempt to add items by type; delegates to the stack overload.
+// Attempts to add items by type; delegates to the stack overload.
 bool Inventory::addItem(BlockType type, int count) {
     return addItem(ItemStack(type, count));
 }
 
-// Merge items into existing stacks first, then fill empty slots.
+// Merges items into existing stacks first, then fills empty slots.
 bool Inventory::addItem(const ItemStack& stack) {
     if (stack.isEmpty()) return true;
 
@@ -127,7 +131,7 @@ bool Inventory::addItem(const ItemStack& stack) {
     return remaining == 0;
 }
 
-// Remove a specific count of items from a slot and return them.
+// Removes a specific count of items from a slot and returns them.
 ItemStack Inventory::removeItem(int index, int count) {
     ItemStack& slot = getSlot(index);
     if (slot.isEmpty()) return ItemStack();
@@ -138,7 +142,7 @@ ItemStack Inventory::removeItem(int index, int count) {
     return result;
 }
 
-// Take the entire contents of a slot, clearing it.
+// Takes the entire contents of a slot, clearing it.
 ItemStack Inventory::takeItem(int index) {
     ItemStack& slot = getSlot(index);
     ItemStack result = slot;
@@ -146,14 +150,14 @@ ItemStack Inventory::takeItem(int index) {
     return result;
 }
 
-// Swap the contents of two slots.
+// Swaps the contents of two slots.
 void Inventory::swapSlots(int fromIndex, int toIndex) {
     if (fromIndex < 0 || fromIndex >= TOTAL_SIZE || toIndex < 0 || toIndex >= TOTAL_SIZE) return;
     if (fromIndex == toIndex) return;
     std::swap(m_slots[fromIndex], m_slots[toIndex]);
 }
 
-// Split a stack by moving half into the target slot.
+// Splits a stack by moving half into the target slot.
 void Inventory::splitStack(int fromIndex, int toIndex) {
     if (fromIndex < 0 || fromIndex >= TOTAL_SIZE || toIndex < 0 || toIndex >= TOTAL_SIZE) return;
     if (fromIndex == toIndex) return;
@@ -179,7 +183,7 @@ void Inventory::splitStack(int fromIndex, int toIndex) {
     }
 }
 
-// Move or merge a stack into another slot.
+// Moves or merges a stack into another slot.
 void Inventory::moveStack(int fromIndex, int toIndex) {
     if (fromIndex < 0 || fromIndex >= TOTAL_SIZE || toIndex < 0 || toIndex >= TOTAL_SIZE) return;
     if (fromIndex == toIndex) return;
@@ -200,7 +204,7 @@ void Inventory::moveStack(int fromIndex, int toIndex) {
     }
 }
 
-// Return true if every slot is occupied.
+// Returns true if every slot is occupied.
 bool Inventory::isFull() const {
     for (const auto& slot : m_slots) {
         if (slot.isEmpty()) return false;
@@ -208,7 +212,7 @@ bool Inventory::isFull() const {
     return true;
 }
 
-// Return the index of the first empty slot, or -1 if none.
+// Returns the index of the first empty slot, or -1 if none.
 int Inventory::getFirstEmptySlot() const {
     for (int i = 0; i < TOTAL_SIZE; i++) {
         if (m_slots[i].isEmpty()) return i;
@@ -216,7 +220,7 @@ int Inventory::getFirstEmptySlot() const {
     return -1;
 }
 
-// Return the index of the first slot containing the given type, or -1.
+// Returns the index of the first slot containing the given type, or -1.
 int Inventory::getFirstSlotWithItem(BlockType type) const {
     for (int i = 0; i < TOTAL_SIZE; i++) {
         if (m_slots[i].type == type) return i;
@@ -224,7 +228,7 @@ int Inventory::getFirstSlotWithItem(BlockType type) const {
     return -1;
 }
 
-// Clear all inventory slots.
+// Clears all inventory slots.
 void Inventory::clear() {
     m_slots.fill(ItemStack());
 }

@@ -7,26 +7,33 @@ class World;
 constexpr float PLAYER_HEIGHT = 1.8f;
 constexpr float PLAYER_RADIUS = 0.35f;
 
-// Camera with physics, movement, and collision detection.
 class Camera {
 public:
     enum class Mode { Survival, Creative, Spectator };
 
+    // Initializes camera at position looking toward target.
     Camera(const Vector3& position, const Vector3& target, const Vector3& up);
 
-    // Movement (each axis independently, with collision).
+    // Moves along the forward axis with collision.
     void moveForward(float distance, const World& world);
+    // Moves along the right axis with collision.
     void moveRight(float distance, const World& world);
+    // Moves vertically (creative/spectator only).
     void moveUp(float distance, const World& world);
+    // Handles space bar press for jumping and creative fly toggle.
     void handleSpacePress(const World& world, float currentTime);
     void handleSpaceRelease();
+    // Resets velocity when flying.
     void updateFlying(float dt, const World& world);
+    // Returns true if the player is standing on a solid block.
     bool isOnGround(const World& world) const;
+    // Applies gravity, resolves vertical collisions, and updates ground state.
     void updatePhysics(float deltaTime, const World& world);
+    // Applies yaw/pitch rotation and rebuilds direction vectors.
     void rotate(float yaw, float pitch);
+    // Cycles through Survival, Creative, and Spectator modes.
     void cycleMode();
 
-    // Accessors.
     Mode getMode() const;
     bool isFlying() const { return m_flying; }
     Vector3 getPosition() const;
@@ -42,18 +49,16 @@ public:
     }
 
 private:
-    // AABB collision tests against the world.
+    // Tests AABB collision against the world.
     static bool aabbTest(const World& world, float footX, float footY, float footZ, float checkHeight = PLAYER_HEIGHT);
     bool aabbTest(const World& world, const Vector3& pos) const;
     bool aabbTest(const World& world, const Vector3& min, const Vector3& max) const;
 
-    // Transform state.
     Vector3 m_position;
     Vector3 m_forward;
     Vector3 m_up;
     Vector3 m_right;
 
-    // Orientation and physics.
     float m_yaw = 0.0f;
     float m_pitch = 0.0f;
     float m_velocityY = 0.0f;

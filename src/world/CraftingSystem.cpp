@@ -77,7 +77,6 @@ const std::vector<CraftingRecipe>& CraftingSystem::getRecipes() {
 
 // Checks the grid against shapeless and shaped recipes, updating the result slot.
 void CraftingSystem::updateResult() {
-    // Count non-empty slots and record the first filled type
     int filledCount = 0;
     int firstIndex = -1;
     BlockType firstType = BlockType::AIR;
@@ -97,7 +96,7 @@ void CraftingSystem::updateResult() {
         return;
     }
 
-    // Shapeless recipes: single log -> 4 planks, single cobblestone -> stone
+    // Check shapeless single-item recipes (log -> planks, cobblestone -> stone).
     if (filledCount == 1) {
         if (firstType == BlockType::OAK_LOG) {
             m_result = ItemStack(BlockType::OAK_PLANKS, 4);
@@ -129,7 +128,7 @@ void CraftingSystem::updateResult() {
         }
     }
 
-    // Exact 2x2 pattern matching
+    // Check shaped 2x2 pattern recipes.
     for (const auto& recipe : s_recipes) {
         bool match = true;
         for (int i = 0; i < GRID_SIZE; i++) {

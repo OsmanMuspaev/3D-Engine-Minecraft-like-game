@@ -8,7 +8,7 @@
 namespace fs = std::filesystem;
 
 static const char MAGIC[6] = {'Q','U','A','D','R','O'};
-static constexpr int HEADER_SIZE = 6 + sizeof(int) + sizeof(uint32_t); // magic + worldSize + seedLen
+static constexpr int HEADER_SIZE = 6 + sizeof(int) + sizeof(uint32_t);
 
 namespace WorldSave {
 
@@ -20,7 +20,6 @@ bool saveWorld(const std::string& name, const World& world, int worldSize, const
     std::ofstream out(filePath, std::ios::binary);
     if (!out.is_open()) return false;
 
-    // Write header
     out.write(MAGIC, 6);
 
     int ws = worldSize;
@@ -30,23 +29,22 @@ bool saveWorld(const std::string& name, const World& world, int worldSize, const
     out.write(reinterpret_cast<const char*>(&seedLen), sizeof(uint32_t));
     out.write(seed.c_str(), seedLen);
 
-    // Write chunk data for each column in the world area
-    int chunkCount = worldSize / Chunk::SIZE;
-    for (int cx = -chunkCount; cx < chunkCount; cx++) {
-        for (int cz = -chunkCount; cz < chunkCount; cz++) {
-            out.write(reinterpret_cast<const char*>(&cx), sizeof(int));
-            out.write(reinterpret_cast<const char*>(&cz), sizeof(int));
+    const auto& chunks = world.getChunks();
+    int chunkCount = static_cast<int>(chunks.size());
+    out.write(reinterpret_cast<const char*>(&chunkCount), sizeof(int));
 
-            for (int ly = 0; ly < Chunk::SIZE; ly++) {
-                for (int lz = 0; lz < Chunk::SIZE; lz++) {
-                    for (int lx = 0; lx < Chunk::SIZE; lx++) {
-                        int wx = cx * Chunk::SIZE + lx;
-                        int wy = ly;
-                        int wz = cz * Chunk::SIZE + lz;
-                        Block block = world.getBlock(wx, wy, wz);
-                        unsigned int bt = static_cast<unsigned int>(block.type);
-                        out.write(reinterpret_cast<const char*>(&bt), sizeof(unsigned int));
-                    }
+    for (auto& [key, chunk] : chunks) {
+        auto [cx, cy, cz] = key;
+        out.write(reinterpret_cast<const char*>(&cx), sizeof(int));
+        out.write(reinterpret_cast<const char*>(&cy), sizeof(int));
+        out.write(reinterpret_cast<const char*>(&cz), sizeof(int));
+
+        for (int ly = 0; ly < Chunk::SIZE; ly++) {
+            for (int lz = 0; lz < Chunk::SIZE; lz++) {
+                for (int lx = 0; lx < Chunk::SIZE; lx++) {
+                    Block block = chunk->getBlock(lx, ly, lz);
+                    unsigned int bt = static_cast<unsigned int>(block.type);
+                    out.write(reinterpret_cast<const char*>(&bt), sizeof(unsigned int));
                 }
             }
         }
@@ -62,7 +60,6 @@ bool loadWorld(const std::string& name, World& world, int& worldSize, std::strin
     std::ifstream in(filePath, std::ios::binary);
     if (!in.is_open()) return false;
 
-    // Read and verify header
     char magic[6];
     in.read(magic, 6);
     if (std::memcmp(magic, MAGIC, 6) != 0) return false;
@@ -76,24 +73,24 @@ bool loadWorld(const std::string& name, World& world, int& worldSize, std::strin
     seed.resize(seedLen);
     in.read(&seed[0], seedLen);
 
-    // Read chunk data
-    int chunkCount = worldSize / Chunk::SIZE;
-    for (int cx = -chunkCount; cx < chunkCount; cx++) {
-        for (int cz = -chunkCount; cz < chunkCount; cz++) {
-            int readCx, readCz;
-            in.read(reinterpret_cast<char*>(&readCx), sizeof(int));
-            in.read(reinterpret_cast<char*>(&readCz), sizeof(int));
+    int chunkCount;
+    in.read(reinterpret_cast<char*>(&chunkCount), sizeof(int));
 
-            for (int ly = 0; ly < Chunk::SIZE; ly++) {
-                for (int lz = 0; lz < Chunk::SIZE; lz++) {
-                    for (int lx = 0; lx < Chunk::SIZE; lx++) {
-                        unsigned int bt;
-                        in.read(reinterpret_cast<char*>(&bt), sizeof(unsigned int));
-                        int wx = readCx * Chunk::SIZE + lx;
-                        int wy = ly;
-                        int wz = readCz * Chunk::SIZE + lz;
-                        world.setBlock(wx, wy, wz, static_cast<BlockType>(bt));
-                    }
+    for (int i = 0; i < chunkCount; i++) {
+        int cx, cy, cz;
+        in.read(reinterpret_cast<char*>(&cx), sizeof(int));
+        in.read(reinterpret_cast<char*>(&cy), sizeof(int));
+        in.read(reinterpret_cast<char*>(&cz), sizeof(int));
+
+        for (int ly = 0; ly < Chunk::SIZE; ly++) {
+            for (int lz = 0; lz < Chunk::SIZE; lz++) {
+                for (int lx = 0; lx < Chunk::SIZE; lx++) {
+                    unsigned int bt;
+                    in.read(reinterpret_cast<char*>(&bt), sizeof(unsigned int));
+                    int wx = cx * Chunk::SIZE + lx;
+                    int wy = cy * Chunk::SIZE + ly;
+                    int wz = cz * Chunk::SIZE + lz;
+                    world.setBlock(wx, wy, wz, static_cast<BlockType>(bt));
                 }
             }
         }

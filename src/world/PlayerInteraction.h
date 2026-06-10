@@ -5,7 +5,6 @@
 #include "Item.h"
 #include "../core/Camera.h"
 
-// Result of a raycast against the world, storing hit info and surface normal.
 struct RaycastResult {
     bool hit = false;
     Vector3 blockPos;
@@ -14,7 +13,6 @@ struct RaycastResult {
     BlockType blockType = BlockType::AIR;
 };
 
-// Handles player block interactions: breaking, placing, and raycasting.
 class PlayerInteraction {
 public:
     static constexpr float REACH_DISTANCE = 5.0f;
@@ -22,8 +20,11 @@ public:
 
     PlayerInteraction();
 
+    // Updates the current target block via raycast each frame.
     void update(float dt, const Camera& camera, World& world, Inventory& inventory);
+    // Handles left click: breaks the targeted block and adds it to inventory in survival mode.
     void handleLeftClick(const Camera& camera, World& world, Inventory& inventory);
+    // Handles right click: places the selected block on the adjacent face of the targeted block.
     void handleRightClick(const Camera& camera, World& world, Inventory& inventory);
     void setBreakProgress(float progress) { m_breakProgress = progress; }
     float getBreakProgress() const { return m_breakProgress; }

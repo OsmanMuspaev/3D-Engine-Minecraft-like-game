@@ -12,7 +12,6 @@ enum TintType : int {
     TINT_WATER = 3
 };
 
-// Block definition with per-face texture names and tint indices
 struct BlockDef {
     std::string name;
     std::array<std::string, 6> textures;
@@ -21,13 +20,15 @@ struct BlockDef {
     bool transparent = false;
 };
 
-// Singleton registry mapping BlockType to BlockDef
 class BlockRegistry {
 public:
     static BlockRegistry& instance();
 
+    // Initializes all block definitions.
     void init();
+    // Looks up the BlockDef for a given block type.
     const BlockDef& getDef(BlockType type) const;
+    // Returns the six atlas tile indices for the block's face textures.
     std::array<unsigned int, 6> getBlockTextures(const TextureManager& texMgr, BlockType type) const;
 
     static bool isTransparent(BlockType type) {

@@ -6,7 +6,6 @@
 #include "CraftingSystem.h"
 #include "../core/Camera.h"
 
-// Renders and handles input for the inventory GUI overlay.
 class InventoryUI {
 public:
     InventoryUI();
@@ -67,5 +66,6 @@ private:
                        const TextureManager& texMgr, const ItemRegistry& itemReg,
                        const sf::Vector2f& pos, float size);
 
+    // Loads a font file, falling back to a system font if the primary is missing.
     void loadFont();
 };

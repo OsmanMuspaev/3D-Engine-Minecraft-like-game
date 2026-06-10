@@ -5,12 +5,12 @@
 #include <algorithm>
 #include <iostream>
 
-// Initialize the UI and load the default font.
+// Initializes the UI and loads the default font.
 InventoryUI::InventoryUI() {
     loadFont();
 }
 
-// Load a font file, falling back to a system font if the primary is missing.
+// Loads a font file, falling back to a system font if the primary is missing.
 void InventoryUI::loadFont() {
     std::string fontPath = "assets/fonts/minecraft.ttf";
     if (!std::filesystem::exists(fontPath)) {
@@ -21,7 +21,7 @@ void InventoryUI::loadFont() {
     m_fontLoaded = m_font.openFromFile(fontPath);
 }
 
-// Load all GUI textures from the given assets path.
+// Loads all GUI textures from the given assets path.
 void InventoryUI::loadTextures(const std::string& assetsPath) {
     std::string guiPath = assetsPath + "/minecraft/textures/gui";
 
@@ -45,7 +45,7 @@ void InventoryUI::loadTextures(const std::string& assetsPath) {
     }
 }
 
-// Draw the crosshair centered on screen.
+// Draws the crosshair centered on screen.
 void InventoryUI::renderCrosshair(sf::RenderWindow& window, unsigned int windowWidth, unsigned int windowHeight) {
     if (!m_texturesLoaded) return;
 
@@ -61,7 +61,7 @@ void InventoryUI::renderCrosshair(sf::RenderWindow& window, unsigned int windowW
     window.draw(crosshair);
 }
 
-// Render the hotbar background, selection highlight, and item icons.
+// Renders the hotbar background, selection highlight, and item icons.
 void InventoryUI::renderHotbar(sf::RenderWindow& window, const Inventory& inventory,
                                const TextureManager& texMgr, const ItemRegistry& itemReg,
                                unsigned int windowWidth, unsigned int windowHeight) {
@@ -103,7 +103,7 @@ void InventoryUI::renderHotbar(sf::RenderWindow& window, const Inventory& invent
     }
 }
 
-// Render the full inventory panel: main grid, hotbar, crafting, armor, and drag item.
+// Renders the full inventory panel: main grid, hotbar, crafting, armor, and drag item.
 void InventoryUI::renderInventory(sf::RenderWindow& window, const Inventory& inventory,
                                   const CraftingSystem& crafting,
                                   const TextureManager& texMgr, const ItemRegistry& itemReg,
@@ -149,7 +149,6 @@ void InventoryUI::renderInventory(sf::RenderWindow& window, const Inventory& inv
         return sf::Vector2f(sx, sy);
     };
 
-    // Main inventory grid (3 rows x 9 cols)
     for (int row = 0; row < Inventory::MAIN_ROWS; row++) {
         for (int col = 0; col < Inventory::MAIN_COLS; col++) {
             int slotIndex = Inventory::HOTBAR_SIZE + row * Inventory::MAIN_COLS + col;
@@ -166,7 +165,6 @@ void InventoryUI::renderInventory(sf::RenderWindow& window, const Inventory& inv
         }
     }
 
-    // Hotbar slots within the inventory panel
     for (int i = 0; i < Inventory::HOTBAR_SIZE; i++) {
         int slotIndex = i;
         float texX = 8.0f + i * SLOT_SIZE_PX;
@@ -181,7 +179,6 @@ void InventoryUI::renderInventory(sf::RenderWindow& window, const Inventory& inv
         }
     }
 
-    // 2x2 crafting grid
     for (int row = 0; row < 2; row++) {
         for (int col = 0; col < 2; col++) {
             int craftIndex = row * 2 + col;
@@ -199,7 +196,6 @@ void InventoryUI::renderInventory(sf::RenderWindow& window, const Inventory& inv
         }
     }
 
-    // Crafting result slot
     {
         float texX = 152.0f;
         float texY = 28.0f;
@@ -214,7 +210,6 @@ void InventoryUI::renderInventory(sf::RenderWindow& window, const Inventory& inv
         }
     }
 
-    // Armor slots on the left side
     {
         static constexpr int ARMOR_SLOT_START = Inventory::TOTAL_SIZE + CraftingSystem::GRID_SIZE + 1;
         static constexpr float armorTexCoords[4][2] = {
@@ -236,7 +231,6 @@ void InventoryUI::renderInventory(sf::RenderWindow& window, const Inventory& inv
         }
     }
 
-    // Item currently being dragged by the cursor
     const Inventory::DragState& dragState = inventory.getDragState();
     if (dragState.active && !dragState.stack.isEmpty()) {
         float dragOffset = (ITEM_SIZE_PX * INV_SCALE) / 2.0f;
@@ -249,7 +243,7 @@ void InventoryUI::renderInventory(sf::RenderWindow& window, const Inventory& inv
 void InventoryUI::drawSlotBg(sf::RenderWindow& window, const sf::Vector2f& pos, float size, bool selected) {
 }
 
-// Draw an item icon with its stack count inside a slot.
+// Draws an item icon with its stack count inside a slot.
 void InventoryUI::drawItemStack(sf::RenderWindow& window, const ItemStack& stack,
                                 const TextureManager& texMgr, const ItemRegistry& itemReg,
                                 const sf::Vector2f& pos, float scale) {
@@ -302,7 +296,6 @@ void InventoryUI::drawItemStack(sf::RenderWindow& window, const ItemStack& stack
     states.texture = atlasTex;
     window.draw(quad, states);
 
-    // Draw stack count in the bottom-right corner
     if (stack.count > 1 && m_fontLoaded) {
         sf::Text countText(m_font);
         countText.setString(std::to_string(stack.count));
@@ -317,7 +310,7 @@ void InventoryUI::drawItemStack(sf::RenderWindow& window, const ItemStack& stack
     }
 }
 
-// Validate whether an armor piece matches its target slot index.
+// Validates whether an armor piece matches its target slot index.
 static bool isValidArmorSlotPlacement(int armorIndex, BlockType type) {
     switch (armorIndex) {
         case Inventory::ARMOR_HELMET:
@@ -353,7 +346,7 @@ static bool isValidArmorSlotPlacement(int armorIndex, BlockType type) {
     }
 }
 
-// Process mouse clicks and releases for inventory slot interaction.
+// Processes mouse clicks and releases for inventory slot interaction.
 bool InventoryUI::handleMouseInput(const sf::Vector2i& mousePos, bool leftPressed, bool leftReleased,
                                    bool rightPressed, bool rightReleased,
                                    Inventory& inventory, CraftingSystem& crafting,
@@ -362,7 +355,6 @@ bool InventoryUI::handleMouseInput(const sf::Vector2i& mousePos, bool leftPresse
 
     Inventory::DragState& dragState = const_cast<Inventory::DragState&>(inventory.getDragState());
 
-    // Determine which slot the mouse is hovering over
     int hoveredSlot = -1;
     sf::Vector2f mf(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
     for (const auto& sr : m_slotRects) {
@@ -407,7 +399,7 @@ bool InventoryUI::handleMouseInput(const sf::Vector2i& mousePos, bool leftPresse
         crafting.updateResult();
     };
 
-    // Left-click on crafting result slot: craft the item
+    // Left-click on crafting result slot: craft the item.
     if (leftPressed && isCraftResult(hoveredSlot) && !crafting.getResultSlot().isEmpty()) {
         if (!dragState.active) {
             ItemStack result = crafting.getResultSlot();
@@ -436,13 +428,12 @@ bool InventoryUI::handleMouseInput(const sf::Vector2i& mousePos, bool leftPresse
         }
     }
 
-    // Left-click on a regular slot: pick up, place, merge, or swap
+    // Left-click on a regular slot: pick up, place, merge, or swap.
     if (leftPressed && hoveredSlot >= 0 && !isCraftResult(hoveredSlot)) {
         ItemStack* slot = getSlotRef(hoveredSlot);
         if (!slot) return false;
 
         if (!dragState.active) {
-            // Pick up entire stack
             if (!slot->isEmpty()) {
                 dragState.active = true;
                 dragState.stack = *slot;
@@ -451,7 +442,6 @@ bool InventoryUI::handleMouseInput(const sf::Vector2i& mousePos, bool leftPresse
                 if (isCraftGrid(hoveredSlot)) refreshCraft();
             }
         } else {
-            // Validate armor slot placement before proceeding
             if (isArmorSlot(hoveredSlot)) {
                 int armorIdx = getArmorIndex(hoveredSlot);
                 if (!isValidArmorSlotPlacement(armorIdx, dragState.stack.type)) {
@@ -460,20 +450,17 @@ bool InventoryUI::handleMouseInput(const sf::Vector2i& mousePos, bool leftPresse
             }
 
             if (slot->isEmpty()) {
-                // Place held stack into empty slot
                 *slot = dragState.stack;
                 dragState.active = false;
                 dragState.stack = ItemStack();
                 dragState.sourceIndex = -1;
             } else if (slot->canStackWith(dragState.stack)) {
-                // Merge into existing compatible stack
                 int space = slot->getFreeSpace();
                 if (space > 0) {
                     int move = std::min(dragState.stack.count, space);
                     slot->add(move);
                     dragState.stack.remove(move);
                 } else {
-                    // Stack is full: swap
                     std::swap(*slot, dragState.stack);
                     dragState.sourceIndex = hoveredSlot;
                 }
@@ -482,7 +469,6 @@ bool InventoryUI::handleMouseInput(const sf::Vector2i& mousePos, bool leftPresse
                     dragState.sourceIndex = -1;
                 }
             } else {
-                // Incompatible types: swap
                 std::swap(*slot, dragState.stack);
                 dragState.sourceIndex = hoveredSlot;
             }
@@ -491,13 +477,12 @@ bool InventoryUI::handleMouseInput(const sf::Vector2i& mousePos, bool leftPresse
         return true;
     }
 
-    // Right-click on a regular slot: pick up half or place one item
+    // Right-click on a regular slot: pick up half or place one item.
     if (rightPressed && hoveredSlot >= 0 && !isCraftResult(hoveredSlot)) {
         ItemStack* slot = getSlotRef(hoveredSlot);
         if (!slot) return false;
 
         if (!dragState.active) {
-            // Pick up half of the stack
             if (!slot->isEmpty() && slot->count > 0) {
                 int half = (slot->count + 1) / 2;
                 dragState.active = true;
@@ -508,7 +493,6 @@ bool InventoryUI::handleMouseInput(const sf::Vector2i& mousePos, bool leftPresse
                 if (isCraftGrid(hoveredSlot)) refreshCraft();
             }
         } else {
-            // Validate armor slot placement before proceeding
             if (isArmorSlot(hoveredSlot)) {
                 int armorIdx = getArmorIndex(hoveredSlot);
                 if (!isValidArmorSlotPlacement(armorIdx, dragState.stack.type)) {
@@ -517,7 +501,6 @@ bool InventoryUI::handleMouseInput(const sf::Vector2i& mousePos, bool leftPresse
             }
 
             if (slot->isEmpty()) {
-                // Place one item into empty slot
                 *slot = ItemStack(dragState.stack.type, 1);
                 dragState.stack.remove(1);
                 if (dragState.stack.isEmpty()) {
@@ -525,7 +508,6 @@ bool InventoryUI::handleMouseInput(const sf::Vector2i& mousePos, bool leftPresse
                     dragState.sourceIndex = -1;
                 }
             } else if (slot->canStackWith(dragState.stack)) {
-                // Add one item to compatible stack if there is room
                 int space = slot->getFreeSpace();
                 if (space > 0) {
                     slot->add(1);
@@ -541,7 +523,7 @@ bool InventoryUI::handleMouseInput(const sf::Vector2i& mousePos, bool leftPresse
         return true;
     }
 
-    // Release outside any slot: return dragged items to their source
+    // Release outside any slot: return dragged items to their source.
     if ((leftReleased || rightReleased) && dragState.active && hoveredSlot < 0) {
         if (dragState.sourceIndex >= 0) {
             ItemStack* slot = getSlotRef(dragState.sourceIndex);

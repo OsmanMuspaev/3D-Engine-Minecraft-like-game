@@ -5,7 +5,6 @@
 
 namespace fs = std::filesystem;
 
-// Scans the block texture directory, loads images, and builds the atlas
 bool TextureManager::loadFromDirectory(const std::string& assetsPath, unsigned int tileSize) {
     m_tileSize = tileSize;
     m_blockTexturePath = assetsPath + "/minecraft/textures/block/";
@@ -15,7 +14,6 @@ bool TextureManager::loadFromDirectory(const std::string& assetsPath, unsigned i
         return false;
     }
 
-    // Collect all PNG files from the directory
     std::vector<std::pair<std::string, fs::path>> textureFiles;
     for (const auto& entry : fs::directory_iterator(m_blockTexturePath)) {
         if (entry.is_regular_file() && entry.path().extension() == ".png") {
@@ -27,7 +25,6 @@ bool TextureManager::loadFromDirectory(const std::string& assetsPath, unsigned i
     std::sort(textureFiles.begin(), textureFiles.end());
     std::cout << "Found " << textureFiles.size() << " block textures\n";
 
-    // Load each texture into an sf::Image
     std::vector<std::pair<std::string, sf::Image>> images;
     for (const auto& [name, path] : textureFiles) {
         sf::Image img;
@@ -41,7 +38,6 @@ bool TextureManager::loadFromDirectory(const std::string& assetsPath, unsigned i
     return buildAtlas(images);
 }
 
-// Scans the item texture directory, loads images, and builds the item atlas
 bool TextureManager::loadItemTextures(const std::string& assetsPath) {
     std::string itemTexturePath = assetsPath + "/minecraft/textures/item/";
 
@@ -50,7 +46,6 @@ bool TextureManager::loadItemTextures(const std::string& assetsPath) {
         return false;
     }
 
-    // Collect all PNG files from the directory
     std::vector<std::pair<std::string, fs::path>> textureFiles;
     for (const auto& entry : fs::directory_iterator(itemTexturePath)) {
         if (entry.is_regular_file() && entry.path().extension() == ".png") {
@@ -62,7 +57,6 @@ bool TextureManager::loadItemTextures(const std::string& assetsPath) {
     std::sort(textureFiles.begin(), textureFiles.end());
     std::cout << "Found " << textureFiles.size() << " item textures\n";
 
-    // Load each texture into an sf::Image
     std::vector<std::pair<std::string, sf::Image>> images;
     for (const auto& [name, path] : textureFiles) {
         sf::Image img;
@@ -76,7 +70,6 @@ bool TextureManager::loadItemTextures(const std::string& assetsPath) {
     return buildItemAtlas(images);
 }
 
-// Stitches item images into a single atlas texture and builds the name-to-index map
 bool TextureManager::buildItemAtlas(const std::vector<std::pair<std::string, sf::Image>>& images) {
     if (images.empty()) return false;
 
@@ -93,7 +86,6 @@ bool TextureManager::buildItemAtlas(const std::vector<std::pair<std::string, sf:
 
     m_itemAtlasImage.resize({atlasW, atlasH}, sf::Color::Black);
 
-    // Copy each tile into the atlas at its grid position
     for (unsigned int i = 0; i < numTiles; i++) {
         const auto& [name, img] = images[i];
 
@@ -117,7 +109,6 @@ bool TextureManager::buildItemAtlas(const std::vector<std::pair<std::string, sf:
     return true;
 }
 
-// Returns the tile index for a named item texture, or 0 if not found
 unsigned int TextureManager::getItemTileIndex(const std::string& textureName) const {
     if (textureName.empty()) return 0;
     auto it = m_itemNameToIndex.find(textureName);
@@ -128,7 +119,6 @@ unsigned int TextureManager::getItemTileIndex(const std::string& textureName) co
     return 0;
 }
 
-// Computes UV coordinates for a tile in the item atlas
 std::array<sf::Vector2f, 4> TextureManager::getItemUV(unsigned int tileIndex) const {
     if (m_itemTilesPerRow == 0) {
         return {
@@ -156,7 +146,6 @@ std::array<sf::Vector2f, 4> TextureManager::getItemUV(unsigned int tileIndex) co
     };
 }
 
-// Stitches block images into a single atlas texture and builds the name-to-index map
 bool TextureManager::buildAtlas(const std::vector<std::pair<std::string, sf::Image>>& images) {
     if (images.empty()) return false;
 
@@ -173,7 +162,6 @@ bool TextureManager::buildAtlas(const std::vector<std::pair<std::string, sf::Ima
 
     m_atlasImage.resize({atlasW, atlasH}, sf::Color::Black);
 
-    // Copy each tile into the atlas at its grid position
     for (unsigned int i = 0; i < numTiles; i++) {
         const auto& [name, img] = images[i];
 
@@ -198,7 +186,6 @@ bool TextureManager::buildAtlas(const std::vector<std::pair<std::string, sf::Ima
     return true;
 }
 
-// Returns the tile index for a named block texture, or 0 if not found
 unsigned int TextureManager::getTileIndex(const std::string& textureName) const {
     if (textureName.empty()) return 0;
     auto it = m_nameToIndex.find(textureName);
@@ -209,7 +196,6 @@ unsigned int TextureManager::getTileIndex(const std::string& textureName) const 
     return 0;
 }
 
-// Computes UV coordinates for a tile in the block atlas
 std::array<sf::Vector2f, 4> TextureManager::getUV(unsigned int tileIndex) const {
     if (!m_loaded || m_tilesPerRow == 0) {
         return {

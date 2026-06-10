@@ -28,7 +28,7 @@ RaycastResult PlayerInteraction::raycast(const Camera& camera, const World& worl
             result.blockType = block.type;
             result.distance = dist;
 
-            // Determine surface normal from the last step position
+            // Determine surface normal from the last step position.
             int lbx = static_cast<int>(std::floor(lastPos.x));
             int lby = static_cast<int>(std::floor(lastPos.y));
             int lbz = static_cast<int>(std::floor(lastPos.z));

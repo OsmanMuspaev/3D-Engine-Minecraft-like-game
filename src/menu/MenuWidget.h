@@ -3,7 +3,13 @@
 #include <string>
 #include <functional>
 
-// A clickable rectangular button with centered text.
+struct MenuButton {
+    std::string text;
+    sf::Vector2f position;
+    sf::Vector2f size;
+    int actionId;
+};
+
 struct Button {
     sf::RectangleShape shape;
     sf::Text label;
@@ -22,7 +28,6 @@ struct Button {
     bool contains(const sf::Vector2f& point) const;
 };
 
-// A text input field with label and cursor.
 struct TextInput {
     sf::RectangleShape box;
     sf::Text label;
@@ -42,7 +47,6 @@ struct TextInput {
     void setFocus(bool f);
 };
 
-// Simple text label.
 struct Label {
     sf::Text text;
 

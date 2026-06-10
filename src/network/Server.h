@@ -6,32 +6,27 @@
 #include "Packet.h"
 #include "../world/World.h"
 
-// Simple blocking TCP server for a voxel game.
-// Accepts clients, relays player positions, and sends world data on join.
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <fcntl.h>
+#endif
+
 class Server {
 public:
     Server();
     ~Server();
 
-    // Start listening on the given port. Returns false on failure.
-    bool start(unsigned short port = 53000);
-
-    // Shut down the server and disconnect every client.
+    bool start(unsigned short port = 25565);
     void stop();
-
     bool isRunning() const { return m_running; }
 
-    // Provide a pointer to the authoritative world so the server can
-    // read / write blocks and send world data to newly-joined clients.
     void setWorld(World* world, int worldSize);
-
-    // Drive the server from the game loop. Call once per frame.
     void update(float dt);
-
     int getClientCount() const { return static_cast<int>(m_clients.size()); }
 
 private:
-    // Represents one connected client.
     struct Client {
         sf::TcpSocket socket;
         int id = 0;
@@ -43,8 +38,9 @@ private:
     void handleClientPackets();
     void broadcastPositions();
     void sendWorldToClient(Client& client);
+    void closeListener();
 
-    sf::TcpListener m_listener;
+    int m_listenFd = -1;
     std::vector<std::unique_ptr<Client>> m_clients;
     std::atomic<bool> m_running = false;
     int m_nextId = 1;

@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "AssetPath.h"
 #include "math/Matrix4x4.h"
 #include "world/WorldSave.h"
 #include <iostream>
@@ -23,54 +24,8 @@
 
 using CameraViewType = PlayerView::CameraViewType;
 
-#ifdef __APPLE__
-#include <CoreFoundation/CoreFoundation.h>
-#endif
-
-// Returns the macOS bundle Resources directory path, or empty string on other platforms.
-static std::string getBundleResourcesPath() {
-#ifdef __APPLE__
-    CFBundleRef bundle = CFBundleGetMainBundle();
-    if (bundle) {
-        CFURLRef url = CFBundleCopyResourcesDirectoryURL(bundle);
-        if (url) {
-            char path[1024];
-            if (CFURLGetFileSystemRepresentation(url, true, reinterpret_cast<UInt8*>(path), sizeof(path))) {
-                CFRelease(url);
-                return std::string(path);
-            }
-            CFRelease(url);
-        }
-    }
-#endif
-    return "";
-}
-
-// Resolves an asset file path, checking bundle resources and common fallback locations.
 static std::string getAssetPath(const std::string& filename) {
-#ifdef __APPLE__
-    std::string bundlePath = getBundleResourcesPath();
-    if (!bundlePath.empty()) {
-        std::string bp = bundlePath + "/assets/" + filename;
-        if (std::filesystem::exists(bp)) {
-            return bp;
-        }
-    }
-
-    std::vector<std::string> paths = {
-        "assets/" + filename,
-        "../Resources/assets/" + filename,
-        "3D-game.app/Contents/Resources/assets/" + filename,
-        "/Users/osman-nyri/Проекты/Games/3D-Engine/assets/" + filename
-    };
-
-    for (const auto& path : paths) {
-        if (std::filesystem::exists(path)) {
-            return path;
-        }
-    }
-#endif
-    return "assets/" + filename;
+    return AssetPath::resolve(filename);
 }
 
 // Creates the SFML window, loads the app icon, and sets up initial state.
@@ -154,7 +109,6 @@ void Game::addDefaultInventory() {
 }
 
 // Initializes textures, fonts, renderer, and menu system.
-// Does NOT generate a world or populate inventory -- that happens when a world is started.
 void Game::init() {
     initRenderer(m_renderScale);
 
@@ -183,6 +137,8 @@ void Game::init() {
 
 // Polls SFML events while in a menu state, forwarding them to the menu system.
 void Game::handleMenuEvents() {
+    m_window.setMouseCursorVisible(true);
+
     while (auto event = m_window.pollEvent()) {
         if (event->is<sf::Event::Closed>()) {
             m_window.close();
@@ -222,7 +178,6 @@ void Game::handleMenuEvents() {
 }
 
 // Processes SFML events: keyboard, mouse, and window close.
-// Escape now opens the pause menu instead of closing the window.
 void Game::handleEvents() {
     bool invLeftPressed = false;
     bool invLeftReleased = false;
@@ -347,7 +302,7 @@ void Game::handleEvents() {
         int dx = pos.x - m_lastMouse.x;
         int dy = pos.y - m_lastMouse.y;
         if (dx != 0 || dy != 0) {
-            m_camera.rotate(-dx * 0.003f, dy * 0.003f);
+            m_camera.rotate(dx * 0.003f, -dy * 0.003f);
         }
 
         const int margin = 5;
@@ -465,35 +420,6 @@ void Game::update(float dt) {
 
     if (m_isServer) {
         m_server.update(dt);
-    }
-
-    // Process menu actions.
-    if (m_menu.wantsResume()) {
-        m_menu.consumeResume();
-    }
-    if (m_menu.wantsLoadWorld()) {
-        m_menu.consumeLoadWorld();
-        loadExistingWorld(m_menu.getSelectedWorld());
-    }
-    if (m_menu.wantsCreateWorld()) {
-        m_menu.consumeCreateWorld();
-        startNewWorld(m_menu.getNewWorldName(), m_menu.getWorldSize());
-    }
-    if (m_menu.wantsConnect()) {
-        m_menu.consumeConnect();
-        connectToServer(m_menu.getServerAddress());
-    }
-    if (m_menu.wantsOpenToLAN()) {
-        m_menu.consumeOpenToLAN();
-        startServer(false);
-    }
-    if (m_menu.wantsOpenToTunnel()) {
-        m_menu.consumeOpenToTunnel();
-        startServer(true);
-    }
-    if (m_menu.wantsQuitToMenu()) {
-        m_menu.consumeQuitToMenu();
-        resetGame();
     }
 }
 
@@ -680,9 +606,43 @@ void Game::render(float dt) {
 
 // Renders the menu screen and displays the frame.
 void Game::renderMenu() {
+    m_window.setMouseCursorVisible(true);
+    m_menu.setServerStatus(m_isServer, 25565, m_tunnelUrl, m_tunnelRunning, m_isServer ? getLocalIP() : "");
     m_menu.update(1.0f / 60.0f, m_window);
     m_menu.draw(m_window);
     m_window.display();
+
+    if (m_menu.wantsQuitToMenu()) {
+        m_menu.consumeQuitToMenu();
+        resetGame();
+    }
+    if (m_menu.wantsResume()) {
+        m_menu.consumeResume();
+    }
+    if (m_menu.wantsLoadWorld()) {
+        m_menu.consumeLoadWorld();
+        loadExistingWorld(m_menu.getSelectedWorld());
+    }
+    if (m_menu.wantsCreateWorld()) {
+        m_menu.consumeCreateWorld();
+        startNewWorld(m_menu.getNewWorldName(), m_menu.getWorldSize());
+    }
+    if (m_menu.wantsConnect()) {
+        m_menu.consumeConnect();
+        connectToServer(m_menu.getServerAddress());
+    }
+    if (m_menu.wantsOpenToLAN()) {
+        m_menu.consumeOpenToLAN();
+        startServer(false);
+    }
+    if (m_menu.wantsOpenToTunnel()) {
+        m_menu.consumeOpenToTunnel();
+        startServer(true);
+    }
+    if (m_menu.wantsQuit()) {
+        m_menu.consumeQuit();
+        m_window.close();
+    }
 }
 
 // Generates a new world, populates the inventory, and enters the Playing state.
@@ -692,18 +652,24 @@ void Game::startNewWorld(const std::string& name, int worldSize) {
     addDefaultInventory();
     m_menu.setState(MenuState::Playing);
     saveCurrentWorld();
-    std::cout << "Created world: " << name << " (size " << worldSize << ")\n";
+    std::cout << "Created world: " << name << " (size " << worldSize
+              << ", seed " << m_world.getBiomeManager().getSeed() << ")\n";
 }
 
 // Loads a saved world from disk, populates the inventory, and enters the Playing state.
 void Game::loadExistingWorld(const std::string& name) {
     int worldSize = 20;
-    std::string seed;
-    if (WorldSave::loadWorld(name, m_world, worldSize, seed)) {
+    std::string seedStr;
+    if (WorldSave::loadWorld(name, m_world, worldSize, seedStr)) {
+        unsigned int seed = 0;
+        if (!seedStr.empty()) {
+            try { seed = static_cast<unsigned int>(std::stoul(seedStr)); } catch (...) {}
+        }
+        m_world.getBiomeManager().setSeed(seed);
         m_currentWorldName = name;
         addDefaultInventory();
         m_menu.setState(MenuState::Playing);
-        std::cout << "Loaded world: " << name << "\n";
+        std::cout << "Loaded world: " << name << " (seed " << seed << ")\n";
     } else {
         std::cerr << "Failed to load world: " << name << "\n";
     }
@@ -712,7 +678,7 @@ void Game::loadExistingWorld(const std::string& name) {
 // Parses a host:port address, connects to the server, and enters the Playing state.
 void Game::connectToServer(const std::string& address) {
     std::string host = address;
-    unsigned short port = 53000;
+    unsigned short port = 25565;
 
     auto colonPos = address.rfind(':');
     if (colonPos != std::string::npos) {
@@ -734,48 +700,45 @@ void Game::connectToServer(const std::string& address) {
     }
 }
 
-// Starts the TCP server on port 53000 and enters the Playing state.
+// Starts the TCP server on port 25565 and enters the Playing state.
 void Game::startServer(bool useTunnel) {
-    // If server is already running, just show the info screen.
     if (m_isServer) {
         if (useTunnel) {
-            launchLocalTunnel(53000);
+            launchLocalTunnel(25565);
         } else {
             std::string ip = getLocalIP();
-            m_menu.showServerInfo("Local IP: " + ip + ":53000\n\nShare this address with other\nplayers on your local network.");
+            m_menu.showServerInfo("Local IP: " + ip + ":25565\n\nShare this address with other\nplayers on your local network.");
         }
         return;
     }
 
-    if (m_server.start(53000)) {
+    m_server.stop();
+
+    if (m_server.start(25565)) {
         m_isServer = true;
         m_server.setWorld(&m_world, m_menu.getWorldSize());
 
         if (useTunnel) {
-            launchLocalTunnel(53000);
+            launchLocalTunnel(25565);
         } else {
             std::string ip = getLocalIP();
-            m_menu.showServerInfo("Local IP: " + ip + ":53000\n\nShare this address with other\nplayers on your local network.");
+            m_menu.showServerInfo("Local IP: " + ip + ":25565\n\nShare this address with other\nplayers on your local network.");
         }
     } else {
-        m_menu.showServerInfo("Failed to start server on port 53000.\nPort may be in use by another program.");
+        m_menu.showServerInfo("Failed to start server on port 25565.\nPort may be in use by another program.");
     }
 }
 
-// ---------------------------------------------------------------------------
-// Get the local LAN IP address (first non-loopback IPv4)
-// ---------------------------------------------------------------------------
-
+// Returns the local LAN IP address (first non-loopback IPv4).
 std::string Game::getLocalIP() {
 #ifdef _WIN32
-    // Windows: connect a UDP socket to find the outgoing interface
     SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock == INVALID_SOCKET)
         return "127.0.0.1";
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(53000);
+    addr.sin_port = htons(25565);
     inet_pton(AF_INET, "8.8.8.8", &addr.sin_addr);
 
     connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
@@ -814,10 +777,7 @@ std::string Game::getLocalIP() {
 #endif
 }
 
-// ---------------------------------------------------------------------------
-// Launch localtunnel in a background thread, capture the URL
-// ---------------------------------------------------------------------------
-
+// Launches localtunnel in a background thread and captures the URL.
 void Game::launchLocalTunnel(unsigned short port) {
     if (m_tunnelRunning)
         return;
@@ -829,7 +789,7 @@ void Game::launchLocalTunnel(unsigned short port) {
         std::string cmd = "lt --port " + std::to_string(port) + " 2>&1";
         FILE* pipe = popen(cmd.c_str(), "r");
         if (!pipe) {
-            m_tunnelUrl = "Error: failed to launch localtunnel.\nMake sure 'lt' is installed:\n  npm install -g localtunnel";
+            m_tunnelUrl = "Error: localtunnel not found. Install: npm i -g localtunnel";
             m_tunnelRunning = false;
             return;
         }
@@ -837,10 +797,8 @@ void Game::launchLocalTunnel(unsigned short port) {
         char buf[512];
         while (fgets(buf, sizeof(buf), pipe)) {
             std::string line(buf);
-            // lt outputs: "your url is: https://xxx.loca.lt"
             if (line.find("loca.lt") != std::string::npos ||
                 line.find("https://") != std::string::npos) {
-                // Trim trailing newline
                 while (!line.empty() && (line.back() == '\n' || line.back() == '\r'))
                     line.pop_back();
                 m_tunnelUrl = line;
@@ -849,7 +807,7 @@ void Game::launchLocalTunnel(unsigned short port) {
         }
 
         if (m_tunnelUrl.empty()) {
-            m_tunnelUrl = "Error: localtunnel exited without providing a URL.\nMake sure 'lt' is installed:\n  npm install -g localtunnel";
+            m_tunnelUrl = "Error: localtunnel failed. Install: npm i -g localtunnel";
         }
 
         pclose(pipe);
@@ -857,14 +815,14 @@ void Game::launchLocalTunnel(unsigned short port) {
     });
     m_tunnelThread.detach();
 
-    // Show initial info immediately — URL will be available shortly
-    m_menu.showServerInfo("Starting LocalTunnel...\nWaiting for tunnel URL...");
+    std::cout << "[Tunnel] Launching localtunnel on port " << port << "...\n";
 }
 
 // Saves the current world to disk using WorldSave.
 void Game::saveCurrentWorld() {
     if (!m_currentWorldName.empty()) {
-        if (WorldSave::saveWorld(m_currentWorldName, m_world, m_menu.getWorldSize(), m_menu.getWorldSeed())) {
+        std::string seedStr = std::to_string(m_world.getBiomeManager().getSeed());
+        if (WorldSave::saveWorld(m_currentWorldName, m_world, m_menu.getWorldSize(), seedStr)) {
             std::cout << "World saved: " << m_currentWorldName << "\n";
         } else {
             std::cerr << "Failed to save world: " << m_currentWorldName << "\n";
@@ -896,7 +854,7 @@ void Game::resetGame() {
     m_menu.setState(MenuState::MainMenu);
 }
 
-// Main game loop: init, then handle events / update / render each frame.
+// Main game loop: init, then handle events, update, and render each frame.
 void Game::run() {
     init();
     while (m_window.isOpen()) {
@@ -917,6 +875,7 @@ void Game::run() {
 
 // Stops server and client on shutdown.
 void Game::cleanup() {
+    saveCurrentWorld();
     if (m_isServer) {
         m_server.stop();
         m_isServer = false;
@@ -924,6 +883,11 @@ void Game::cleanup() {
     if (m_isClient) {
         m_client.disconnect();
         m_isClient = false;
+    }
+    if (m_tunnelRunning) {
+        m_tunnelRunning = false;
+        if (m_tunnelThread.joinable())
+            m_tunnelThread.detach();
     }
     m_tunnelRunning = false;
 }

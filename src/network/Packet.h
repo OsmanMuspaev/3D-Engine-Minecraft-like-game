@@ -4,16 +4,13 @@
 #include <string>
 #include <vector>
 
-// Identifies the type of each network packet exchanged between client and server.
 enum class PacketType : uint8_t {
-    // Client -> Server
     PlayerMove    = 1,
     BlockBreak    = 2,
     BlockPlace    = 3,
     ChatMessage   = 4,
     JoinRequest   = 5,
 
-    // Server -> Client
     WorldData      = 10,
     BlockUpdate    = 11,
     PlayerSpawn    = 12,
@@ -24,7 +21,6 @@ enum class PacketType : uint8_t {
     JoinRejected   = 17,
 };
 
-// Shared representation of a remote player's state.
 struct PlayerState {
     int id = 0;
     float x = 0, y = 0, z = 0;
@@ -32,10 +28,12 @@ struct PlayerState {
     std::string name;
 };
 
-// Serialise / deserialise PacketType through sf::Packet.
+// Serialises a PacketType through sf::Packet.
 sf::Packet& operator<<(sf::Packet& packet, PacketType type);
+// Deserialises a PacketType from sf::Packet.
 sf::Packet& operator>>(sf::Packet& packet, PacketType& type);
 
-// Serialise / deserialise PlayerState through sf::Packet.
+// Serialises a PlayerState through sf::Packet.
 sf::Packet& operator<<(sf::Packet& packet, const PlayerState& state);
+// Deserialises a PlayerState from sf::Packet.
 sf::Packet& operator>>(sf::Packet& packet, PlayerState& state);

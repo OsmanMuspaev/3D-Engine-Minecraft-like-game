@@ -5,13 +5,11 @@
 
 World::World() {}
 
-// Converts world coordinates to chunk coordinates
 static std::tuple<int, int, int> toChunkCoords(int x, int y, int z) {
     auto coord = [](int v) { return (v >= 0) ? v / Chunk::SIZE : (v - Chunk::SIZE + 1) / Chunk::SIZE; };
     return {coord(x), coord(y), coord(z)};
 }
 
-// Sets a block at world coordinates, creating the chunk if needed
 void World::setBlock(int x, int y, int z, BlockType type) {
     auto [cx, cy, cz] = toChunkCoords(x, y, z);
     auto key = std::make_tuple(cx, cy, cz);
@@ -23,7 +21,6 @@ void World::setBlock(int x, int y, int z, BlockType type) {
     m_chunks[key]->setBlock(x - cx * Chunk::SIZE, y - cy * Chunk::SIZE, z - cz * Chunk::SIZE, type);
     m_chunks[key]->setDirty(true);
 
-    // Mark neighboring chunks dirty if the block is on a chunk boundary
     int localX = x - cx * Chunk::SIZE;
     int localY = y - cy * Chunk::SIZE;
     int localZ = z - cz * Chunk::SIZE;
@@ -68,7 +65,6 @@ void World::setBlock(int x, int y, int z, BlockType type) {
     }
 }
 
-// Returns the block at world coordinates, or AIR if no chunk exists
 Block World::getBlock(int x, int y, int z) const {
     auto [cx, cy, cz] = toChunkCoords(x, y, z);
     auto it = m_chunks.find({cx, cy, cz});
@@ -76,11 +72,9 @@ Block World::getBlock(int x, int y, int z) const {
     return it->second->getBlock(x - cx * Chunk::SIZE, y - cy * Chunk::SIZE, z - cz * Chunk::SIZE);
 }
 
-// Generates terrain for all chunks in the given radius
 void World::generate(int rx, int rz) {
     std::vector<std::pair<int, int>> treeCandidates;
 
-    // Generate block layers for each column
     for (int cx = -rx; cx <= rx; cx++) {
         for (int cz = -rz; cz <= rz; cz++) {
             for (int x = 0; x < Chunk::SIZE; x++) {
@@ -100,7 +94,6 @@ void World::generate(int rx, int rz) {
                         setBlock(wx, y, wz, type);
                     }
 
-                    // Randomly select tree placement candidates
                     if (h > 0 && def.trees) {
                         float roll = (float)(std::rand() % 10000) / 10000.0f;
                         if (roll < def.treeDensity) {
@@ -112,7 +105,6 @@ void World::generate(int rx, int rz) {
         }
     }
 
-    // Place trees with minimum spacing to avoid overlap
     constexpr float TREE_SPACING = 6.0f;
     std::set<std::pair<int, int>> placedTrees;
 
@@ -136,7 +128,6 @@ void World::generate(int rx, int rz) {
     }
 }
 
-// Places a tree with a randomized trunk height and leaf canopy
 void World::createTree(int x, int y, int z) {
     int trunkHeight = 4 + (std::rand() % 3);
 
@@ -144,7 +135,6 @@ void World::createTree(int x, int y, int z) {
         setBlock(x, y + i, z, BlockType::WOOD);
     }
 
-    // Build leaf canopy around the top of the trunk
     int leafStart = y + trunkHeight - 2;
     for (int ly = leafStart; ly <= y + trunkHeight + 1; ly++) {
         int radius = (ly < y + trunkHeight) ? 2 : 1;
@@ -162,7 +152,6 @@ void World::createTree(int x, int y, int z) {
     }
 }
 
-// Draws all chunks within render distance of the camera
 void World::draw(Renderer& renderer, const TextureManager& texMgr,
                  const Matrix4x4& view, const Matrix4x4& proj,
                  const Vector3& cameraPos) const {
@@ -175,7 +164,6 @@ void World::draw(Renderer& renderer, const TextureManager& texMgr,
 
         if (std::sqrt(dx * dx + dz * dz) > RENDER_DIST) continue;
 
-        // Rebuild chunk mesh only when marked dirty
         if (chunk->isDirty()) {
             chunk->buildMesh(texMgr, *this);
         }
@@ -184,12 +172,10 @@ void World::draw(Renderer& renderer, const TextureManager& texMgr,
     }
 }
 
-// Returns true if the block at the given world position is solid
 bool World::isBlocking(float x, float y, float z) const {
     return getBlock((int)std::floor(x), (int)std::floor(y), (int)std::floor(z)).isSolid();
 }
 
-// Returns the biome at the given world position
 Biome World::getBiome(int x, int z) const {
     return m_biomeMgr.getBiome(x, z);
 }

@@ -3,14 +3,12 @@
 #include <vector>
 #include <array>
 
-// A 2x2 crafting recipe with an input pattern and output item.
 struct CraftingRecipe {
-    std::array<BlockType, 4> pattern; // 2x2 grid, row-major
+    std::array<BlockType, 4> pattern;
     BlockType result;
     int resultCount = 1;
 };
 
-// Manages a 2x2 crafting grid and matches items against known recipes.
 class CraftingSystem {
 public:
     static constexpr int GRID_SIZE = 4;
@@ -24,9 +22,12 @@ public:
     ItemStack& getResultSlot();
     const ItemStack& getResultSlot() const;
 
+    // Checks the grid against recipes and updates the result slot.
     void updateResult();
+    // Consumes one item from each filled grid slot.
     void craft();
 
+    // Returns the list of all registered crafting recipes.
     static const std::vector<CraftingRecipe>& getRecipes();
 
 private:
@@ -35,5 +36,6 @@ private:
 
     static std::vector<CraftingRecipe> s_recipes;
     static bool s_recipesInitialized;
+    // Populates the static recipe list with all 2x2 crafting recipes (once).
     static void initRecipes();
 };

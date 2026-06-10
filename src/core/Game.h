@@ -30,30 +30,44 @@ public:
     Game(unsigned int windowWidth, unsigned int windowHeight);
     ~Game();
 
+    // Main game loop: init, then handle events, update, and render each frame.
     void run();
 
 private:
+    // Initializes textures, fonts, renderer, and menu system.
     void init();
+    // Processes SFML events: keyboard, mouse, and window close.
     void handleEvents();
+    // Polls SFML events while in a menu state.
     void handleMenuEvents();
+    // Updates movement, physics, mouse clicks, network sync, and menu flags.
     void update(float dt);
+    // Renders the 3D world, player model, other networked players, and 2D UI overlay.
     void render(float dt);
+    // Renders the menu screen and displays the frame.
     void renderMenu();
+    // Stops server and client on shutdown.
     void cleanup();
 
-    // Inventory helpers.
+    // Adds the default set of building blocks to the inventory.
     void addDefaultInventory();
 
-    // Game state management.
+    // Generates a new world, populates the inventory, and enters the Playing state.
     void startNewWorld(const std::string& name, int worldSize);
+    // Loads a saved world from disk, populates the inventory, and enters the Playing state.
     void loadExistingWorld(const std::string& name);
+    // Parses a host:port address, connects to the server, and enters the Playing state.
     void connectToServer(const std::string& address);
+    // Starts the TCP server on port 53000 and enters the Playing state.
     void startServer(bool useTunnel);
+    // Saves the current world to disk using WorldSave.
     void saveCurrentWorld();
+    // Stops networking, clears the world and inventory, and returns to the main menu.
     void resetGame();
 
-    // Networking helpers.
+    // Returns the local LAN IP address (first non-loopback IPv4).
     static std::string getLocalIP();
+    // Launches localtunnel in a background thread and captures the URL.
     void launchLocalTunnel(unsigned short port);
 
     unsigned int m_windowWidth;
@@ -63,7 +77,6 @@ private:
     sf::RenderWindow m_window;
     std::unique_ptr<Renderer> m_renderer;
 
-    // Core subsystems.
     TextureManager m_texMgr;
     World m_world;
     Camera m_camera;
@@ -73,10 +86,8 @@ private:
     CraftingSystem m_crafting;
     PlayerInteraction m_playerInteraction;
 
-    // Menu system.
     MenuManager m_menu;
 
-    // Networking.
     Server m_server;
     Client m_client;
     bool m_isServer = false;
@@ -84,24 +95,20 @@ private:
     float m_networkSendTimer = 0.0f;
     std::string m_currentWorldName;
 
-    // LocalTunnel process.
     std::thread m_tunnelThread;
     std::atomic<bool> m_tunnelRunning{false};
     std::string m_tunnelUrl;
 
-    // HUD text.
     sf::Font m_font;
     sf::Text m_uiText;
     bool m_fontLoaded = false;
 
-    // Timing.
     sf::Clock m_deltaClock;
     sf::Clock m_fpsClock;
     int m_frames = 0;
     int m_currentFps = 0;
     float m_totalTime = 0.0f;
 
-    // Movement input.
     bool m_wPressed = false, m_sPressed = false, m_aPressed = false, m_dPressed = false;
     bool m_spacePressed = false, m_shiftPressed = false;
     bool m_spaceWasPressed = false;
@@ -109,14 +116,15 @@ private:
     bool m_isSprinting = false;
     float m_lastWPressTime = -1.0f;
 
-    // Mouse state.
     sf::Vector2i m_lastMouse;
     bool m_pendingReset = false;
 
-    // Camera view mode.
     CameraView m_cameraView = CameraView::FirstPerson;
+    // Finds a camera position along a ray that doesn't clip through blocks.
     Vector3 findSafeCameraPosition(const Vector3& headPos, const Vector3& desiredPos, const World& world);
 
+    // Creates or recreates the renderer at the given scale factor.
     void initRenderer(float scale);
+    // Loads a system font for HUD text rendering.
     void loadFont();
 };
