@@ -417,7 +417,7 @@ void Game::update(float dt) {
             for (auto& bu : blockUpdates) {
                 m_world.setBlock(bu.x, bu.y, bu.z, static_cast<BlockType>(bu.type));
             }
-            std::cout << "[Client] Applied " << blockUpdates.size() << " blocks to world\n";
+            std::cout << "[Client] Applied " << blockUpdates.size() << " blocks to world, total chunks=" << m_world.getChunks().size() << "\n";
         }
     }
 

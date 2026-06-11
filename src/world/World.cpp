@@ -155,7 +155,7 @@ void World::createTree(int x, int y, int z) {
 void World::draw(Renderer& renderer, const TextureManager& texMgr,
                  const Matrix4x4& view, const Matrix4x4& proj,
                  const Vector3& cameraPos) const {
-    const float RENDER_DIST = 32.0f;
+    const float RENDER_DIST = 128.0f;
 
     for (auto const& [coords, chunk] : m_chunks) {
         auto [cx, cy, cz] = coords;
